@@ -50,7 +50,7 @@ services:
 
   backend:
     <<: *app-service
-    command: ["python", "-m", "app.api.main"]
+    command: ["uvicorn", "app.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "${BACKEND_PORT:-8000}:8000"
 
