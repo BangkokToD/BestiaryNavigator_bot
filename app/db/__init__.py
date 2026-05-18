@@ -2,15 +2,21 @@
 
 from app.db.base import Base, BaseModelMixin, IdMixin, TimestampMixin
 from app.db.models import (
+    ApiError,
+    AppSetting,
     Clan,
     ClanMemberSnapshot,
     CwlSeason,
     CwlWar,
     KickCandidate,
+    NotificationLog,
+    NotificationRoute,
     PlayerAccount,
+    PlayerEvent,
     PlayerProfileSnapshot,
     RaidMember,
     RaidSeason,
+    TelegramChat,
     TelegramUser,
     WarAttack,
     WarMember,
@@ -28,6 +34,8 @@ from app.db.session import (
 )
 
 __all__ = [
+    "ApiError",
+    "AppSetting",
     "Base",
     "BaseModelMixin",
     "Clan",
@@ -36,10 +44,14 @@ __all__ = [
     "CwlWar",
     "IdMixin",
     "KickCandidate",
+    "NotificationLog",
+    "NotificationRoute",
     "PlayerAccount",
+    "PlayerEvent",
     "PlayerProfileSnapshot",
     "RaidMember",
     "RaidSeason",
+    "TelegramChat",
     "TelegramUser",
     "TimestampMixin",
     "WarAttack",
