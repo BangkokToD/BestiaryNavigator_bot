@@ -1,0 +1,70 @@
+name: bestiarynavigator_bot
+
+x-app-environment: &app-environment
+  PYTHONPATH: /app
+  APP_ENV: "${APP_ENV:-local}"
+  APP_BASE_URL: "${APP_BASE_URL:-http://localhost:8000}"
+  DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-bn}:${POSTGRES_PASSWORD:-bn}@postgres:5432/${POSTGRES_DB:-bestiary}"
+  CLASH_API_BASE_URL: "${CLASH_API_BASE_URL:-https://api.clashofclans.com/v1}"
+  CLASH_API_TOKEN: "${CLASH_API_TOKEN:-}"
+  TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
+  TELEGRAM_ADMIN_ID: "${TELEGRAM_ADMIN_ID:-0}"
+  WEB_SESSION_SECRET: "${WEB_SESSION_SECRET:-}"
+  WEB_ADMIN_COOKIE_NAME: "${WEB_ADMIN_COOKIE_NAME:-bn_admin_session}"
+  SYNC_DEFAULT_INTERVAL_SECONDS: "${SYNC_DEFAULT_INTERVAL_SECONDS:-900}"
+  ROLE_SNAPSHOT_MAX_AGE_MINUTES: "${ROLE_SNAPSHOT_MAX_AGE_MINUTES:-30}"
+
+x-app-service: &app-service
+  build:
+    context: ..
+    dockerfile: infra/Dockerfile
+  restart: unless-stopped
+  environment:
+    <<: *app-environment
+  depends_on:
+    postgres:
+      condition: service_healthy
+  networks:
+    - bestiary
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-bestiary}"
+      POSTGRES_USER: "${POSTGRES_USER:-bn}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-bn}"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - bestiary
+
+  backend:
+    <<: *app-service
+    command: ["python", "-m", "app.api.main"]
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+
+  worker:
+    <<: *app-service
+    command: ["python", "-m", "app.worker.main"]
+
+  bot:
+    <<: *app-service
+    command: ["python", "-m", "app.bot.main"]
+
+volumes:
+  postgres-data:
+
+networks:
+  bestiary:
+    driver: bridge

@@ -55,6 +55,8 @@ Thumbs.db
 
 # Docker/local override files
 docker-compose.override.yml
+infra/docker-compose.override.yml
+infra/docker-compose.local.yml
 
 # Node artifacts for future frontend tooling
 node_modules/

@@ -1,0 +1,69 @@
+# Git
+.git/
+.gitignore
+
+# Local virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Local secrets and env files
+.env
+.env.*
+!.env.example
+
+# Docker/local override files
+docker-compose.override.yml
+infra/docker-compose.override.yml
+infra/docker-compose.local.yml
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Logs/runtime files
+*.log
+logs/
+tmp/
+temp/
+.cache/
+
+# Local databases/dumps
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+
+# IDE/editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node artifacts for future frontend tooling
+node_modules/
+
+# Tests are not needed in the runtime image
+tests/
