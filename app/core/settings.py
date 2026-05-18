@@ -8,13 +8,30 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AnyHttpUrl, Field, SecretStr, ValidationInfo, field_validator
+from pydantic import (
+    AliasChoices,
+    AnyHttpUrl,
+    Field,
+    SecretStr,
+    ValidationInfo,
+    field_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AppEnv = Literal["local", "dev", "test", "stage", "prod"]
 
 _PLACEHOLDER_PREFIXES = ("replace-", "change-", "your-", "<")
 _FORBIDDEN_SECRET_VALUES = {"", "...", "changeme", "change_me", "change-me"}
+
+
+def _validate_database_url(value: str) -> str:
+    """Проверяет URL подключения к PostgreSQL через asyncpg."""
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError("DATABASE_URL не может быть пустым.")
+    if not normalized.startswith("postgresql+asyncpg://"):
+        raise ValueError("DATABASE_URL должен иметь префикс postgresql+asyncpg://.")
+    return normalized
 
 
 class Settings(BaseSettings):
@@ -83,12 +100,7 @@ class Settings(BaseSettings):
         Raises:
             ValueError: Если URL пустой или не использует `postgresql+asyncpg://`.
         """
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("DATABASE_URL не может быть пустым.")
-        if not normalized.startswith("postgresql+asyncpg://"):
-            raise ValueError("DATABASE_URL должен иметь префикс postgresql+asyncpg://.")
-        return normalized
+        return _validate_database_url(value)
 
     @field_validator("clash_api_token", "telegram_bot_token", "web_session_secret")
     @classmethod
@@ -124,6 +136,27 @@ class Settings(BaseSettings):
         return value
 
 
+class DatabaseSettings(BaseSettings):
+    """Настройки, необходимые DB-инструментам без загрузки внешних секретов."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        populate_by_name=True,
+    )
+
+    database_url: str = Field(
+        validation_alias=AliasChoices("ALEMBIC_DATABASE_URL", "DATABASE_URL"),
+    )
+
+    @field_validator("database_url")
+    @classmethod
+    def validate_database_url(cls, value: str) -> str:
+        """Проверяет URL подключения к PostgreSQL через asyncpg."""
+        return _validate_database_url(value)
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Возвращает кешированный экземпляр настроек приложения.
@@ -132,3 +165,13 @@ def get_settings() -> Settings:
         Загруженные и провалидированные настройки.
     """
     return Settings()
+
+
+@lru_cache(maxsize=1)
+def get_database_settings() -> DatabaseSettings:
+    """Возвращает настройки, необходимые для DB-инструментов.
+
+    Returns:
+        Настройки подключения к базе данных.
+    """
+    return DatabaseSettings()
