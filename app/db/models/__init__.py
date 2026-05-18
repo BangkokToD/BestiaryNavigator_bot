@@ -6,12 +6,14 @@ from app.db.models.players import ClanMemberSnapshot, PlayerAccount, PlayerProfi
 from app.db.models.raids import RaidMember, RaidSeason
 from app.db.models.users import TelegramUser
 from app.db.models.war import WarAttack, WarMember, WarSnapshot
+from app.db.models.warnings import KickCandidate, Warning
 
 __all__ = [
     "Clan",
     "ClanMemberSnapshot",
     "CwlSeason",
     "CwlWar",
+    "KickCandidate",
     "PlayerAccount",
     "PlayerProfileSnapshot",
     "RaidMember",
@@ -20,4 +22,5 @@ __all__ = [
     "WarAttack",
     "WarMember",
     "WarSnapshot",
+    "Warning",
 ]

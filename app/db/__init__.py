@@ -6,6 +6,7 @@ from app.db.models import (
     ClanMemberSnapshot,
     CwlSeason,
     CwlWar,
+    KickCandidate,
     PlayerAccount,
     PlayerProfileSnapshot,
     RaidMember,
@@ -13,6 +14,7 @@ from app.db.models import (
     TelegramUser,
     WarAttack,
     WarMember,
+    Warning,
     WarSnapshot,
 )
 from app.db.session import (
@@ -33,6 +35,7 @@ __all__ = [
     "CwlSeason",
     "CwlWar",
     "IdMixin",
+    "KickCandidate",
     "PlayerAccount",
     "PlayerProfileSnapshot",
     "RaidMember",
@@ -42,6 +45,7 @@ __all__ = [
     "WarAttack",
     "WarMember",
     "WarSnapshot",
+    "Warning",
     "create_db_engine",
     "create_session_factory",
     "get_db_session",
