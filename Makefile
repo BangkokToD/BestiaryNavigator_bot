@@ -4,6 +4,9 @@ PYTHON ?= python
 PIP ?= $(PYTHON) -m pip
 COMPOSE_FILE ?= infra/docker-compose.yml
 DC ?= docker compose -f $(COMPOSE_FILE)
+ALEMBIC_CONFIG ?= app/db/alembic.ini
+ALEMBIC_DATABASE_URL ?= postgresql+asyncpg://bn:bn@localhost:5432/bestiary
+ALEMBIC ?= ALEMBIC_DATABASE_URL=$(ALEMBIC_DATABASE_URL) $(PYTHON) -m alembic -c $(ALEMBIC_CONFIG)
 
 .DEFAULT_GOAL := help
 
@@ -22,6 +25,13 @@ help:
 	@echo "  make docker-config Validate docker compose -f infra/docker-compose.yml config"
 	@echo "  make docker-build  Build application images"
 	@echo "  make docker-down   Stop and remove compose services"
+	@echo ""
+	@echo "Database:"
+	@echo "  make db-upgrade    Run alembic upgrade head"
+	@echo "  make db-downgrade  Run alembic downgrade base"
+	@echo "  make db-current    Show current database revision"
+	@echo "  make db-reset      Downgrade to base and upgrade to head"
+	@echo "  make postgres-wait Wait until PostgreSQL is ready"
 	@echo ""
 	@echo "PostgreSQL:"
 	@echo "  make postgres-up   Start PostgreSQL"
@@ -61,9 +71,30 @@ docker-build:
 docker-down:
 	$(DC) down
 
+.PHONY: db-upgrade
+db-upgrade:
+	$(ALEMBIC) upgrade head
+
+.PHONY: db-downgrade
+db-downgrade:
+	$(ALEMBIC) downgrade base
+
+.PHONY: db-current
+db-current:
+	$(ALEMBIC) current
+
+.PHONY: db-reset
+db-reset: db-downgrade db-upgrade
+
 .PHONY: postgres-up
 postgres-up:
 	$(DC) up -d postgres
+
+.PHONY: postgres-wait
+postgres-wait:
+	@until $(DC) exec -T postgres pg_isready -U bn -d bestiary; do \
+		sleep 1; \
+	done
 
 .PHONY: postgres-logs
 postgres-logs:

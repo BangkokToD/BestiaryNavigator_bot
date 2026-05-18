@@ -14,7 +14,6 @@ COPY pyproject.toml ./pyproject.toml
 COPY app ./app
 COPY frontend ./frontend
 COPY materials ./materials
-COPY migrations ./migrations
 
 RUN python -m pip install --upgrade pip \
     && python -m pip install .
