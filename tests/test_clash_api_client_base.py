@@ -13,6 +13,8 @@ from app.core.settings import Settings
 from app.integrations.clash import (
     ClashApiClient,
     ClashApiError,
+    ClashClan,
+    ClashClanMember,
     ClashForbiddenError,
     ClashNotFoundError,
     ClashRateLimitError,
@@ -210,6 +212,132 @@ async def test_clash_api_client_verify_player_token_rejects_empty_token() -> Non
             await client.verify_player_token("2abc", "   ")
     finally:
         await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_get_clan_returns_typed_dto_and_encodes_tag() -> None:
+    """Проверяет get_clan, typed DTO и URL-encoding clan tag внутри клиента."""
+    captured_request: httpx.Request | None = None
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        """Сохраняет request и возвращает payload клана."""
+        nonlocal captured_request
+        captured_request = request
+        return httpx.Response(
+            200,
+            json={
+                "tag": "#2ABC",
+                "name": "Bestiary",
+                "clanLevel": 17,
+                "members": 44,
+                "badgeUrls": {
+                    "small": "https://example.test/small.png",
+                    "medium": "https://example.test/medium.png",
+                    "large": "https://example.test/large.png",
+                },
+                "description": "ignored",
+            },
+        )
+
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(handler),
+    )
+
+    try:
+        clan = await client.get_clan("2abc")
+    finally:
+        await client.aclose()
+
+    assert clan == ClashClan(
+        tag="#2ABC",
+        name="Bestiary",
+        level=17,
+        badge_url="https://example.test/medium.png",
+        members_count=44,
+    )
+    assert captured_request is not None
+    assert str(captured_request.url) == "https://api.clashofclans.com/v1/clans/%232ABC"
+    assert captured_request.method == "GET"
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_get_clan_members_returns_typed_dto_and_encodes_tag() -> None:
+    """Проверяет get_clan_members, typed DTO и URL-encoding clan tag."""
+    captured_request: httpx.Request | None = None
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        """Сохраняет request и возвращает list-response участников."""
+        nonlocal captured_request
+        captured_request = request
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "tag": "#2ABC",
+                        "name": "Bangkok",
+                        "role": "leader",
+                        "townHallLevel": 16,
+                        "expLevel": 233,
+                        "trophies": 5200,
+                        "donations": 1000,
+                        "donationsReceived": 700,
+                        "builderBaseTrophies": 4000,
+                    },
+                    {
+                        "tag": "#9XYZ",
+                        "name": "Phoenix",
+                        "role": "coLeader",
+                        "townhallLevel": 15,
+                        "expLevel": 180,
+                        "trophies": 4800,
+                        "donations": 800,
+                        "donationsReceived": 600,
+                    },
+                ]
+            },
+        )
+
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(handler),
+    )
+
+    try:
+        members = await client.get_clan_members("#2abc")
+    finally:
+        await client.aclose()
+
+    assert members == [
+        ClashClanMember(
+            player_tag="#2ABC",
+            name="Bangkok",
+            role="leader",
+            town_hall_level=16,
+            exp_level=233,
+            trophies=5200,
+            donations=1000,
+            donations_received=700,
+        ),
+        ClashClanMember(
+            player_tag="#9XYZ",
+            name="Phoenix",
+            role="coLeader",
+            town_hall_level=15,
+            exp_level=180,
+            trophies=4800,
+            donations=800,
+            donations_received=600,
+        ),
+    ]
+    assert captured_request is not None
+    assert str(captured_request.url) == "https://api.clashofclans.com/v1/clans/%232ABC/members"
+    assert captured_request.method == "GET"
 
 
 @pytest.mark.asyncio

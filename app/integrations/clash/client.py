@@ -9,7 +9,7 @@ from pydantic import SecretStr
 
 from app.core.settings import Settings, get_settings
 from app.domain.tags import encode_tag_for_clash_url
-from app.integrations.clash.dto import VerifyPlayerTokenResult
+from app.integrations.clash.dto import ClashClan, ClashClanMember, VerifyPlayerTokenResult
 from app.integrations.clash.exceptions import (
     ClashApiError,
     ClashForbiddenError,
@@ -21,6 +21,7 @@ from app.integrations.clash.exceptions import (
 
 _RESPONSE_SNIPPET_MAX_LENGTH = 2048
 type JsonObject = dict[str, object]
+type JsonObjectList = list[JsonObject]
 
 
 class ClashApiClient:
@@ -121,6 +122,43 @@ class ClashApiClient:
     async def aclose(self) -> None:
         """Закрывает HTTP-соединения клиента."""
         await self._http_client.aclose()
+
+    async def get_clan(self, clan_tag: str) -> ClashClan:
+        """Получает минимальные данные клана по clan tag.
+
+        URL-encoding тега выполняется только внутри клиента. Внешние слои
+        передают обычный тег в формате `2ABC` или `#2ABC`.
+
+        Args:
+            clan_tag: Тег клана.
+
+        Returns:
+            Typed DTO клана с минимально нужными полями.
+        """
+        encoded_clan_tag = encode_tag_for_clash_url(clan_tag)
+        response = await self._request("GET", f"clans/{encoded_clan_tag}")
+
+        return ClashClan.from_payload(self._response_json_object(response))
+
+    async def get_clan_members(self, clan_tag: str) -> list[ClashClanMember]:
+        """Получает список участников клана.
+
+        URL-encoding тега выполняется только внутри клиента. Метод поддерживает
+        оба распространённых формата list-response: массив и объект с `items`.
+
+        Args:
+            clan_tag: Тег клана.
+
+        Returns:
+            Список typed DTO участников клана.
+        """
+        encoded_clan_tag = encode_tag_for_clash_url(clan_tag)
+        response = await self._request("GET", f"clans/{encoded_clan_tag}/members")
+
+        return [
+            ClashClanMember.from_payload(member_payload)
+            for member_payload in self._response_json_items(response)
+        ]
 
     async def get_player(self, player_tag: str) -> JsonObject:
         """Получает профиль игрока по player tag.
@@ -309,6 +347,35 @@ class ClashApiClient:
             raise ValueError("Clash API response должен быть JSON object.")
 
         return cast(JsonObject, payload)
+
+    @staticmethod
+    def _response_json_items(response: httpx.Response) -> JsonObjectList:
+        """Возвращает JSON list-response как список объектов.
+
+        Clash API list-endpoints могут возвращать либо массив, либо объект с
+        ключом `items`. Метод принимает оба варианта, но элементы списка должны
+        быть JSON object.
+
+        Args:
+            response: HTTP response Clash API.
+
+        Returns:
+            Список JSON-объектов.
+
+        Raises:
+            ValueError: Если API вернул неподдерживаемый формат.
+        """
+        payload = response.json()
+        if isinstance(payload, dict):
+            payload = payload.get("items")
+
+        if not isinstance(payload, list):
+            raise ValueError("Clash API list response должен быть JSON array или object.items.")
+
+        if not all(isinstance(item, dict) for item in payload):
+            raise ValueError("Clash API list response должен содержать только JSON objects.")
+
+        return cast(JsonObjectList, payload)
 
     @staticmethod
     def _normalize_base_url(value: str) -> str:

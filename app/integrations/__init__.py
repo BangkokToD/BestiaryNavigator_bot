@@ -3,6 +3,8 @@
 from app.integrations.clash import (
     ClashApiClient,
     ClashApiError,
+    ClashClan,
+    ClashClanMember,
     ClashForbiddenError,
     ClashNotFoundError,
     ClashRateLimitError,
@@ -14,6 +16,8 @@ from app.integrations.clash import (
 __all__ = [
     "ClashApiClient",
     "ClashApiError",
+    "ClashClan",
+    "ClashClanMember",
     "ClashForbiddenError",
     "ClashNotFoundError",
     "ClashRateLimitError",
