@@ -17,9 +17,12 @@ help:
 	@echo "Local tooling:"
 	@echo "  make install       Install runtime package"
 	@echo "  make install-dev   Install runtime + dev dependencies"
+	@echo "  make format        Format code with ruff"
 	@echo "  make lint          Run ruff"
+	@echo "  make lint-fix      Run safe ruff autofix"
 	@echo "  make test          Run pytest"
 	@echo "  make check         Run lint, tests and docker compose -f infra/docker-compose.yml config"
+	@echo "  make fix           Run safe autofix, format and full check"
 	@echo ""
 	@echo "Docker:"
 	@echo "  make docker-config Validate docker compose -f infra/docker-compose.yml config"
@@ -48,9 +51,21 @@ install:
 install-dev:
 	$(PIP) install -e ".[dev]"
 
+.PHONY: format
+format:
+	$(PYTHON) -m ruff format .
+
 .PHONY: lint
 lint:
 	$(PYTHON) -m ruff check .
+
+.PHONY: lint-fix
+lint-fix:
+	$(PYTHON) -m ruff check . --fix
+
+.PHONY: lint-fix-unsafe
+lint-fix-unsafe:
+	$(PYTHON) -m ruff check . --fix --unsafe-fixes
 
 .PHONY: test
 test:
@@ -58,6 +73,12 @@ test:
 
 .PHONY: check
 check: lint test docker-config
+
+.PHONY: fix
+fix: lint-fix format
+
+.PHONY: fix-unsafe
+fix-unsafe: lint-fix-unsafe format
 
 .PHONY: docker-config
 docker-config:

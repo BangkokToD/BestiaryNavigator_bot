@@ -90,9 +90,7 @@ def test_clan_member_snapshot_model_contract_and_index() -> None:
 
     expected_index_columns = ("clan_id", "player_tag", "snapshot_at")
     index_columns = {
-        tuple(index.columns.keys())
-        for index in table.indexes
-        if isinstance(index, Index)
+        tuple(index.columns.keys()) for index in table.indexes if isinstance(index, Index)
     }
 
     assert expected_index_columns in index_columns
@@ -123,9 +121,7 @@ def test_player_profile_snapshot_model_contract_and_jsonb_fields() -> None:
 
     expected_index_columns = ("player_tag", "snapshot_at")
     index_columns = {
-        tuple(index.columns.keys())
-        for index in table.indexes
-        if isinstance(index, Index)
+        tuple(index.columns.keys()) for index in table.indexes if isinstance(index, Index)
     }
 
     assert expected_index_columns in index_columns
