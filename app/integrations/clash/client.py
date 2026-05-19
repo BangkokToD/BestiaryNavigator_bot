@@ -9,7 +9,16 @@ from pydantic import SecretStr
 
 from app.core.settings import Settings, get_settings
 from app.domain.tags import encode_tag_for_clash_url
-from app.integrations.clash.dto import ClashClan, ClashClanMember, VerifyPlayerTokenResult
+from app.integrations.clash.dto import (
+    ClashCapitalRaidSeason,
+    ClashClan,
+    ClashClanMember,
+    ClashCurrentWar,
+    ClashCwlLeagueGroup,
+    ClashCwlWar,
+    ClashWarLogEntry,
+    VerifyPlayerTokenResult,
+)
 from app.integrations.clash.exceptions import (
     ClashApiError,
     ClashForbiddenError,
@@ -122,6 +131,122 @@ class ClashApiClient:
     async def aclose(self) -> None:
         """Закрывает HTTP-соединения клиента."""
         await self._http_client.aclose()
+
+    async def get_current_war(self, clan_tag: str) -> ClashCurrentWar | None:
+        """Получает текущую войну клана.
+
+        Отсутствие текущей войны может приходить от Clash API как `404`.
+        Для этого endpoint такое состояние возвращается как `None`, чтобы
+        worker/service-слой мог отличить отсутствие войны от сбоя API.
+
+        Args:
+            clan_tag: Тег клана.
+
+        Returns:
+            DTO текущей войны или `None`, если активной войны нет.
+        """
+        encoded_clan_tag = encode_tag_for_clash_url(clan_tag)
+        endpoint = f"clans/{encoded_clan_tag}/currentwar"
+
+        try:
+            response = await self._request("GET", endpoint)
+        except ClashNotFoundError:
+            return None
+
+        return ClashCurrentWar.from_payload(self._response_json_object(response))
+
+    async def get_war_log(
+        self,
+        clan_tag: str,
+        *,
+        limit: int | None = None,
+        after: str | None = None,
+        before: str | None = None,
+    ) -> list[ClashWarLogEntry]:
+        """Получает журнал обычных войн клана.
+
+        Args:
+            clan_tag: Тег клана.
+            limit: Ограничение количества элементов.
+            after: Pagination marker `after`.
+            before: Pagination marker `before`.
+
+        Returns:
+            Список DTO записей журнала войн.
+        """
+        encoded_clan_tag = encode_tag_for_clash_url(clan_tag)
+        response = await self._request(
+            "GET",
+            f"clans/{encoded_clan_tag}/warlog",
+            params=self._build_paging_params(limit=limit, after=after, before=before),
+        )
+
+        return [
+            ClashWarLogEntry.from_payload(entry_payload)
+            for entry_payload in self._response_json_items(response)
+        ]
+
+    async def get_cwl_league_group(self, clan_tag: str) -> ClashCwlLeagueGroup:
+        """Получает текущую группу ЛВК клана.
+
+        Args:
+            clan_tag: Тег клана.
+
+        Returns:
+            DTO группы ЛВК.
+        """
+        encoded_clan_tag = encode_tag_for_clash_url(clan_tag)
+        response = await self._request(
+            "GET",
+            f"clans/{encoded_clan_tag}/currentwar/leaguegroup",
+        )
+
+        return ClashCwlLeagueGroup.from_payload(self._response_json_object(response))
+
+    async def get_cwl_war(self, war_tag: str) -> ClashCwlWar:
+        """Получает конкретную войну ЛВК по war tag.
+
+        Args:
+            war_tag: War tag из CWL API.
+
+        Returns:
+            DTO войны ЛВК.
+        """
+        encoded_war_tag = encode_tag_for_clash_url(war_tag)
+        response = await self._request("GET", f"clanwarleagues/wars/{encoded_war_tag}")
+
+        return ClashCwlWar.from_payload(self._response_json_object(response))
+
+    async def get_capital_raid_seasons(
+        self,
+        clan_tag: str,
+        *,
+        limit: int | None = None,
+        after: str | None = None,
+        before: str | None = None,
+    ) -> list[ClashCapitalRaidSeason]:
+        """Получает рейдовые сезоны столицы клана.
+
+        Args:
+            clan_tag: Тег клана.
+            limit: Ограничение количества элементов.
+            after: Pagination marker `after`.
+            before: Pagination marker `before`.
+
+        Returns:
+            Список DTO рейдовых сезонов.
+        """
+        encoded_clan_tag = encode_tag_for_clash_url(clan_tag)
+        response = await self._request(
+            "GET",
+            f"clans/{encoded_clan_tag}/capitalraidseasons",
+            params=self._build_paging_params(limit=limit, after=after, before=before),
+        )
+
+        return [
+            ClashCapitalRaidSeason.from_payload(season_payload)
+            for season_payload in self._response_json_items(response)
+        ]
 
     async def get_clan(self, clan_tag: str) -> ClashClan:
         """Получает минимальные данные клана по clan tag.
@@ -376,6 +501,51 @@ class ClashApiClient:
             raise ValueError("Clash API list response должен содержать только JSON objects.")
 
         return cast(JsonObjectList, payload)
+
+    @staticmethod
+    def _build_paging_params(
+        *,
+        limit: int | None,
+        after: str | None,
+        before: str | None,
+    ) -> dict[str, object] | None:
+        """Собирает query params для list-endpoints Clash API.
+
+        Args:
+            limit: Ограничение количества элементов.
+            after: Pagination marker `after`.
+            before: Pagination marker `before`.
+
+        Returns:
+            Query params или `None`, если параметры не переданы.
+
+        Raises:
+            ValueError: Если limit некорректный или одновременно переданы
+                `after` и `before`.
+        """
+        if after is not None and before is not None:
+            raise ValueError("Нельзя одновременно передавать after и before.")
+
+        params: dict[str, object] = {}
+
+        if limit is not None:
+            if isinstance(limit, bool) or limit <= 0:
+                raise ValueError("limit должен быть положительным целым числом.")
+            params["limit"] = limit
+
+        if after is not None:
+            normalized_after = after.strip()
+            if not normalized_after:
+                raise ValueError("after не может быть пустым.")
+            params["after"] = normalized_after
+
+        if before is not None:
+            normalized_before = before.strip()
+            if not normalized_before:
+                raise ValueError("before не может быть пустым.")
+            params["before"] = normalized_before
+
+        return params or None
 
     @staticmethod
     def _normalize_base_url(value: str) -> str:

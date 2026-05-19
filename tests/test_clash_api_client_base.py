@@ -13,13 +13,19 @@ from app.core.settings import Settings
 from app.integrations.clash import (
     ClashApiClient,
     ClashApiError,
+    ClashCapitalRaidSeason,
     ClashClan,
     ClashClanMember,
+    ClashCurrentWar,
+    ClashCwlLeagueGroup,
+    ClashCwlWar,
     ClashForbiddenError,
     ClashNotFoundError,
+    ClashRaidMember,
     ClashRateLimitError,
     ClashServerError,
     ClashTimeoutError,
+    ClashWarLogEntry,
     VerifyPlayerTokenResult,
 )
 
@@ -338,6 +344,320 @@ async def test_clash_api_client_get_clan_members_returns_typed_dto_and_encodes_t
     assert captured_request is not None
     assert str(captured_request.url) == "https://api.clashofclans.com/v1/clans/%232ABC/members"
     assert captured_request.method == "GET"
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_get_current_war_returns_typed_dto_and_encodes_tag() -> None:
+    """Проверяет current war endpoint, DTO и URL-encoding clan tag."""
+    captured_request: httpx.Request | None = None
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        """Сохраняет request и возвращает payload текущей войны."""
+        nonlocal captured_request
+        captured_request = request
+        return httpx.Response(
+            200,
+            json={
+                "state": "inWar",
+                "teamSize": 15,
+                "attacksPerMember": 2,
+                "preparationStartTime": "20260519T100000.000Z",
+                "startTime": "20260519T220000.000Z",
+                "endTime": "20260520T220000.000Z",
+                "clan": {
+                    "tag": "#2ABC",
+                    "name": "Bestiary",
+                    "stars": 12,
+                    "destructionPercentage": 88.5,
+                    "attacks": 10,
+                },
+                "opponent": {
+                    "tag": "#9XYZ",
+                    "name": "Enemy",
+                    "stars": 10,
+                    "destructionPercentage": 81,
+                    "attacks": 9,
+                },
+            },
+        )
+
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(handler),
+    )
+
+    try:
+        current_war = await client.get_current_war("#2abc")
+    finally:
+        await client.aclose()
+
+    assert current_war == ClashCurrentWar(
+        state="inWar",
+        team_size=15,
+        attacks_per_member=2,
+        preparation_start_time="20260519T100000.000Z",
+        start_time="20260519T220000.000Z",
+        end_time="20260520T220000.000Z",
+        clan=current_war.clan,
+        opponent=current_war.opponent,
+    )
+    assert current_war.clan is not None
+    assert current_war.clan.tag == "#2ABC"
+    assert current_war.clan.destruction_percentage == 88.5
+    assert current_war.opponent is not None
+    assert current_war.opponent.tag == "#9XYZ"
+    assert captured_request is not None
+    assert str(captured_request.url) == "https://api.clashofclans.com/v1/clans/%232ABC/currentwar"
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_get_current_war_returns_none_on_404() -> None:
+    """Проверяет специальную обработку 404 для отсутствующей текущей войны."""
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(lambda _: httpx.Response(404, json={"reason": "notFound"})),
+    )
+
+    try:
+        current_war = await client.get_current_war("2abc")
+    finally:
+        await client.aclose()
+
+    assert current_war is None
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_get_war_log_returns_typed_dto() -> None:
+    """Проверяет warlog endpoint, paging params и DTO."""
+    captured_request: httpx.Request | None = None
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        """Сохраняет request и возвращает payload журнала войн."""
+        nonlocal captured_request
+        captured_request = request
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "result": "win",
+                        "teamSize": 15,
+                        "attacksPerMember": 2,
+                        "endTime": "20260520T220000.000Z",
+                        "clan": {
+                            "tag": "#2ABC",
+                            "name": "Bestiary",
+                            "stars": 30,
+                            "destructionPercentage": 98.5,
+                            "attacks": 29,
+                        },
+                        "opponent": {
+                            "tag": "#9XYZ",
+                            "name": "Enemy",
+                            "stars": 24,
+                            "destructionPercentage": 91,
+                            "attacks": 28,
+                        },
+                    }
+                ]
+            },
+        )
+
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(handler),
+    )
+
+    try:
+        war_log = await client.get_war_log("2abc", limit=1, after="cursor")
+    finally:
+        await client.aclose()
+
+    assert len(war_log) == 1
+    assert war_log[0] == ClashWarLogEntry(
+        result="win",
+        team_size=15,
+        attacks_per_member=2,
+        end_time="20260520T220000.000Z",
+        clan=war_log[0].clan,
+        opponent=war_log[0].opponent,
+    )
+    assert war_log[0].clan is not None
+    assert war_log[0].clan.tag == "#2ABC"
+    assert captured_request is not None
+    assert str(captured_request.url) == (
+        "https://api.clashofclans.com/v1/clans/%232ABC/warlog?limit=1&after=cursor"
+    )
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_get_cwl_league_group_returns_typed_dto() -> None:
+    """Проверяет CWL league group endpoint и DTO."""
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json={
+                    "tag": "#GROUP1",
+                    "state": "inWar",
+                    "season": "2026-05",
+                    "clans": [
+                        {"tag": "#2ABC", "name": "Bestiary"},
+                        {"tag": "#9XYZ", "name": "Enemy"},
+                    ],
+                    "rounds": [{"warTags": ["#WAR1", "#WAR2"]}],
+                },
+            )
+        ),
+    )
+
+    try:
+        league_group = await client.get_cwl_league_group("2abc")
+    finally:
+        await client.aclose()
+
+    assert league_group == ClashCwlLeagueGroup(
+        tag="#GROUP1",
+        state="inWar",
+        season="2026-05",
+        clan_tags=("#2ABC", "#9XYZ"),
+        rounds=(("#WAR1", "#WAR2"),),
+    )
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_get_cwl_war_returns_typed_dto_and_encodes_war_tag() -> None:
+    """Проверяет CWL war endpoint, DTO и URL-encoding war tag."""
+    captured_request: httpx.Request | None = None
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        """Сохраняет request и возвращает payload CWL war."""
+        nonlocal captured_request
+        captured_request = request
+        return httpx.Response(
+            200,
+            json={
+                "tag": "#WAR1",
+                "state": "warEnded",
+                "season": "2026-05",
+                "clans": [
+                    {"tag": "#2ABC", "name": "Bestiary"},
+                    {"tag": "#9XYZ", "name": "Enemy"},
+                ],
+            },
+        )
+
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(handler),
+    )
+
+    try:
+        cwl_war = await client.get_cwl_war("#war1")
+    finally:
+        await client.aclose()
+
+    assert cwl_war == ClashCwlWar(
+        tag="#WAR1",
+        state="warEnded",
+        season="2026-05",
+        clan_tags=("#2ABC", "#9XYZ"),
+        rounds=(),
+    )
+    assert captured_request is not None
+    assert (
+        str(captured_request.url) == "https://api.clashofclans.com/v1/clanwarleagues/wars/%23WAR1"
+    )
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_get_capital_raid_seasons_returns_typed_dto() -> None:
+    """Проверяет capital raid seasons endpoint и DTO."""
+    captured_request: httpx.Request | None = None
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        """Сохраняет request и возвращает payload рейдового сезона."""
+        nonlocal captured_request
+        captured_request = request
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "state": "ended",
+                        "startTime": "20260517T070000.000Z",
+                        "endTime": "20260520T070000.000Z",
+                        "capitalTotalLoot": 123456,
+                        "raidsCompleted": 12,
+                        "totalAttacks": 240,
+                        "enemyDistrictsDestroyed": 44,
+                        "offensiveReward": 1200,
+                        "defensiveReward": 500,
+                        "members": [
+                            {
+                                "tag": "#2ABC",
+                                "name": "Bangkok",
+                                "attacks": 6,
+                                "attackLimit": 5,
+                                "bonusAttackLimit": 1,
+                                "capitalResourcesLooted": 30000,
+                            }
+                        ],
+                    }
+                ]
+            },
+        )
+
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(handler),
+    )
+
+    try:
+        raid_seasons = await client.get_capital_raid_seasons("#2abc", limit=1)
+    finally:
+        await client.aclose()
+
+    assert raid_seasons == [
+        ClashCapitalRaidSeason(
+            state="ended",
+            start_time="20260517T070000.000Z",
+            end_time="20260520T070000.000Z",
+            capital_total_loot=123456,
+            raids_completed=12,
+            total_attacks=240,
+            enemy_districts_destroyed=44,
+            offensive_reward=1200,
+            defensive_reward=500,
+            members=(
+                ClashRaidMember(
+                    player_tag="#2ABC",
+                    name="Bangkok",
+                    attacks=6,
+                    attack_limit=5,
+                    bonus_attack_limit=1,
+                    capital_resources_looted=30000,
+                ),
+            ),
+        )
+    ]
+    assert captured_request is not None
+    assert str(captured_request.url) == (
+        "https://api.clashofclans.com/v1/clans/%232ABC/capitalraidseasons?limit=1"
+    )
 
 
 @pytest.mark.asyncio
