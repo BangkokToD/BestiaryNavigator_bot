@@ -7,6 +7,7 @@ x-app-environment: &app-environment
   DATABASE_URL: "postgresql+asyncpg://${POSTGRES_USER:-bn}:${POSTGRES_PASSWORD:-bn}@postgres:5432/${POSTGRES_DB:-bestiary}"
   CLASH_API_BASE_URL: "${CLASH_API_BASE_URL:-https://api.clashofclans.com/v1}"
   CLASH_API_TOKEN: "${CLASH_API_TOKEN:-}"
+  CLASH_API_TIMEOUT_SECONDS: "${CLASH_API_TIMEOUT_SECONDS:-10}"
   TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
   TELEGRAM_ADMIN_ID: "${TELEGRAM_ADMIN_ID:-0}"
   WEB_SESSION_SECRET: "${WEB_SESSION_SECRET:-}"
