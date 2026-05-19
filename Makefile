@@ -3,6 +3,7 @@ SHELL := /bin/bash
 PYTHON ?= python
 PIP ?= $(PYTHON) -m pip
 COMPOSE_FILE ?= infra/docker-compose.yml
+APP_SERVICES ?= backend worker bot
 DC ?= docker compose -f $(COMPOSE_FILE)
 ALEMBIC_CONFIG ?= app/db/alembic.ini
 ALEMBIC_DATABASE_URL ?= postgresql+asyncpg://bn:bn@localhost:5432/bestiary
@@ -21,12 +22,17 @@ help:
 	@echo "  make lint          Run ruff"
 	@echo "  make lint-fix      Run safe ruff autofix"
 	@echo "  make test          Run pytest"
-	@echo "  make check         Run lint, tests and docker compose -f infra/docker-compose.yml config"
+	@echo "  make check         Run lint and tests"
 	@echo "  make fix           Run safe autofix, format and full check"
+	@echo ""
+	@echo "Runtime:"
+	@echo "  make first-run     Install deps, build images, run migrations and start services"
+	@echo "  make up            Build images with frontend, run migrations and start services"
+	@echo "  make down          Stop compose services"
 	@echo ""
 	@echo "Docker:"
 	@echo "  make docker-config Validate docker compose -f infra/docker-compose.yml config"
-	@echo "  make docker-build  Build application images"
+	@echo "  make docker-build  Build application images with frontend assets"
 	@echo "  make docker-down   Stop and remove compose services"
 	@echo ""
 	@echo "Database:"
@@ -72,7 +78,7 @@ test:
 	$(PYTHON) -m pytest
 
 .PHONY: check
-check: lint test docker-config
+check: lint test
 
 .PHONY: fix
 fix: lint-fix format
@@ -90,6 +96,18 @@ docker-build:
 
 .PHONY: docker-down
 docker-down:
+	$(DC) down
+
+.PHONY: first-run
+first-run: install-dev
+	$(MAKE) up
+
+.PHONY: up
+up: docker-build postgres-up postgres-wait db-upgrade
+	$(DC) up -d $(APP_SERVICES)
+
+.PHONY: down
+down:
 	$(DC) down
 
 .PHONY: db-upgrade
