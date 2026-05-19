@@ -13,6 +13,10 @@ from app.integrations.clash.dto import (
     ClashWarSideSummary,
     VerifyPlayerTokenResult,
 )
+from app.integrations.clash.error_context import (
+    ClashApiErrorContext,
+    map_clash_api_error_to_context,
+)
 from app.integrations.clash.exceptions import (
     ClashApiError,
     ClashForbiddenError,
@@ -25,6 +29,7 @@ from app.integrations.clash.exceptions import (
 __all__ = [
     "ClashApiClient",
     "ClashApiError",
+    "ClashApiErrorContext",
     "ClashCapitalRaidSeason",
     "ClashClan",
     "ClashClanMember",
@@ -40,4 +45,5 @@ __all__ = [
     "ClashWarLogEntry",
     "ClashWarSideSummary",
     "VerifyPlayerTokenResult",
+    "map_clash_api_error_to_context",
 ]

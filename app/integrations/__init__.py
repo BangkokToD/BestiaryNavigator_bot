@@ -3,6 +3,7 @@
 from app.integrations.clash import (
     ClashApiClient,
     ClashApiError,
+    ClashApiErrorContext,
     ClashCapitalRaidSeason,
     ClashClan,
     ClashClanMember,
@@ -18,11 +19,13 @@ from app.integrations.clash import (
     ClashWarLogEntry,
     ClashWarSideSummary,
     VerifyPlayerTokenResult,
+    map_clash_api_error_to_context,
 )
 
 __all__ = [
     "ClashApiClient",
     "ClashApiError",
+    "ClashApiErrorContext",
     "ClashCapitalRaidSeason",
     "ClashClan",
     "ClashClanMember",
@@ -38,4 +41,5 @@ __all__ = [
     "ClashWarLogEntry",
     "ClashWarSideSummary",
     "VerifyPlayerTokenResult",
+    "map_clash_api_error_to_context",
 ]
