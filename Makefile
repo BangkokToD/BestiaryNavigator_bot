@@ -75,10 +75,10 @@ test:
 check: lint test docker-config
 
 .PHONY: fix
-fix: lint-fix format check
+fix: lint-fix format
 
 .PHONY: fix-unsafe
-fix-unsafe: lint-fix-unsafe format check
+fix-unsafe: lint-fix-unsafe format
 
 .PHONY: docker-config
 docker-config:
