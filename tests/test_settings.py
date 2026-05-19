@@ -11,6 +11,7 @@ VALID_SETTINGS = {
     "DATABASE_URL": "postgresql+asyncpg://bn:bn@postgres:5432/bestiary",
     "CLASH_API_BASE_URL": "https://api.clashofclans.com/v1",
     "CLASH_API_TOKEN": "test-clash-token-123",
+    "CLASH_API_TIMEOUT_SECONDS": 10,
     "TELEGRAM_BOT_TOKEN": "test-telegram-token-123",
     "TELEGRAM_ADMIN_ID": 123456789,
     "WEB_SESSION_SECRET": "test-session-secret-value-1234567890",
@@ -41,6 +42,7 @@ def test_settings_accepts_valid_values() -> None:
     assert str(settings.app_base_url).rstrip("/") == "http://localhost:8000"
     assert settings.database_url == "postgresql+asyncpg://bn:bn@postgres:5432/bestiary"
     assert settings.telegram_admin_id == 123456789
+    assert settings.clash_api_timeout_seconds == 10
     assert settings.sync_default_interval_seconds == 900
     assert settings.role_snapshot_max_age_minutes == 30
 
@@ -67,6 +69,12 @@ def test_settings_rejects_non_positive_admin_id() -> None:
     """Проверяет, что Telegram admin ID должен быть положительным числом."""
     with pytest.raises(ValidationError):
         make_settings(TELEGRAM_ADMIN_ID=0)
+
+
+def test_settings_rejects_non_positive_clash_api_timeout() -> None:
+    """Проверяет, что timeout Clash API должен быть положительным."""
+    with pytest.raises(ValidationError):
+        make_settings(CLASH_API_TIMEOUT_SECONDS=0)
 
 
 def test_settings_redacts_secret_values_in_repr() -> None:

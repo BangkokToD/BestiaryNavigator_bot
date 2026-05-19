@@ -43,6 +43,7 @@ class Settings(BaseSettings):
         database_url: SQLAlchemy URL подключения к PostgreSQL через asyncpg.
         clash_api_base_url: Базовый URL Clash of Clans API.
         clash_api_token: Секретный Bearer/JWT token Clash API.
+        clash_api_timeout_seconds: Timeout одного HTTP-запроса к Clash API.
         telegram_bot_token: Секретный токен Telegram-бота.
         telegram_admin_id: Telegram ID администратора из `.env`.
         web_session_secret: Секрет для подписи web-сессий/cookie.
@@ -65,6 +66,11 @@ class Settings(BaseSettings):
 
     clash_api_base_url: AnyHttpUrl = Field(validation_alias="CLASH_API_BASE_URL")
     clash_api_token: SecretStr = Field(validation_alias="CLASH_API_TOKEN")
+    clash_api_timeout_seconds: float = Field(
+        default=10.0,
+        validation_alias="CLASH_API_TIMEOUT_SECONDS",
+        gt=0,
+    )
 
     telegram_bot_token: SecretStr = Field(validation_alias="TELEGRAM_BOT_TOKEN")
     telegram_admin_id: int = Field(validation_alias="TELEGRAM_ADMIN_ID", gt=0)
