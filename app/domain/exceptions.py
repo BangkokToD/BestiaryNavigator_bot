@@ -7,3 +7,7 @@ class DomainValidationError(ValueError):
 
 class TagValidationError(DomainValidationError):
     """Ошибка нормализации или валидации Clash-тега."""
+
+
+class EventKeyValidationError(DomainValidationError):
+    """Ошибка построения идемпотентного event key."""
