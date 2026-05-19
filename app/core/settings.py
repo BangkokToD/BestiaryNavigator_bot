@@ -120,9 +120,8 @@ class Settings(BaseSettings):
         raw_value = value.get_secret_value().strip()
         lowered_value = raw_value.lower()
 
-        is_placeholder = (
-            lowered_value in _FORBIDDEN_SECRET_VALUES
-            or lowered_value.startswith(_PLACEHOLDER_PREFIXES)
+        is_placeholder = lowered_value in _FORBIDDEN_SECRET_VALUES or lowered_value.startswith(
+            _PLACEHOLDER_PREFIXES
         )
         if is_placeholder:
             raise ValueError(f"{info.field_name} должен быть заменён на реальное значение.")

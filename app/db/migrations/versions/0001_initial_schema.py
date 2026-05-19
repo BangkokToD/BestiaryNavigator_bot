@@ -858,4 +858,3 @@ def downgrade() -> None:
     op.drop_table("clans")
     op.drop_table("telegram_users")
     op.drop_table("app_settings")
-    
