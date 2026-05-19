@@ -2,7 +2,7 @@
 
 {% block content %}
   <section class="bn-section bn-dashboard" aria-labelledby="dashboard-title">
-    <div class="bn-card__header">
+    <div class="bn-section-header">
       {{ badges.badge("UI skeleton", variant="info") }}
       <h1 id="dashboard-title" class="bn-page-title">Dashboard</h1>
       <p class="bn-page-lead">
@@ -14,9 +14,9 @@
     {% call cards.card(class_name="bn-empty-state") %}
       {{ badges.badge("Пустое состояние", variant="muted") }}
       <div>
-        <p class="bn-card__eyebrow">Нет данных</p>
-        <h2 class="bn-card__title">Кланы ещё не загружены</h2>
-        <p class="bn-card__text">
+        <p class="bn-card-eyebrow">Нет данных</p>
+        <h2 class="bn-card-title">Кланы ещё не загружены</h2>
+        <p class="bn-card-text">
           Эта страница не зависит от базы данных и проверяет только Jinja2,
           базовый layout и подключение static CSS.
         </p>

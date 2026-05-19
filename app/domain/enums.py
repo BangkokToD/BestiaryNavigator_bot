@@ -2,6 +2,8 @@
 
 from enum import StrEnum
 
+from app.domain.exceptions import DomainValidationError
+
 
 class DomainStrEnum(StrEnum):
     """Базовый строковый enum с helper для набора значений."""
@@ -14,6 +16,49 @@ class DomainStrEnum(StrEnum):
             Набор строковых значений всех enum members.
         """
         return frozenset(member.value for member in cls)
+
+
+def require_domain_enum_value[DomainEnumT: DomainStrEnum](
+    enum_type: type[DomainEnumT],
+    value: str,
+    *,
+    field_name: str,
+) -> DomainEnumT:
+    """Проверяет строковое значение доменного enum.
+
+    Helper нужен для service/worker/web/bot-слоёв, где значения приходят
+    строками из форм, API payload или callback data. Модели БД могут хранить
+    строки, но бизнес-логика должна валидировать их через доменные enum.
+
+    Args:
+        enum_type: Класс enum, наследующийся от `DomainStrEnum`.
+        value: Проверяемое строковое значение.
+        field_name: Имя поля для понятного текста ошибки.
+
+    Returns:
+        Enum member, соответствующий строковому значению.
+
+    Raises:
+        DomainValidationError: Если значение пустое, не строковое или не входит
+            в набор допустимых enum values.
+    """
+    if not issubclass(enum_type, DomainStrEnum):
+        raise DomainValidationError("enum_type должен быть подклассом DomainStrEnum.")
+
+    if not isinstance(value, str):
+        raise DomainValidationError(f"{field_name} должен быть строкой.")
+
+    normalized_value = value.strip()
+    if not normalized_value:
+        raise DomainValidationError(f"{field_name} не может быть пустым.")
+
+    try:
+        return enum_type(normalized_value)
+    except ValueError as exc:
+        allowed_values = ", ".join(sorted(enum_type.values()))
+        raise DomainValidationError(
+            f"{field_name} должен быть одним из: {allowed_values}."
+        ) from exc
 
 
 class ClanType(DomainStrEnum):
@@ -161,4 +206,5 @@ __all__ = [
     "WarningReasonCode",
     "WarningSource",
     "WarningStatus",
+    "require_domain_enum_value",
 ]

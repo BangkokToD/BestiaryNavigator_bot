@@ -1,14 +1,14 @@
 {% macro card(title="", eyebrow="", text="", class_name="") -%}
   <article class="bn-card{% if class_name %} {{ class_name }}{% endif %}">
-    <div class="bn-card__body">
+    <div class="bn-card-body">
       {% if eyebrow %}
-        <p class="bn-card__eyebrow">{{ eyebrow }}</p>
+        <p class="bn-card-eyebrow">{{ eyebrow }}</p>
       {% endif %}
       {% if title %}
-        <h2 class="bn-card__title">{{ title }}</h2>
+        <h2 class="bn-card-title">{{ title }}</h2>
       {% endif %}
       {% if text %}
-        <p class="bn-card__text">{{ text }}</p>
+        <p class="bn-card-text">{{ text }}</p>
       {% endif %}
       {% if caller is defined %}
         {{ caller() }}

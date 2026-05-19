@@ -2,12 +2,15 @@
 
 from pathlib import Path
 
+import pytest
+
 from app.domain import (
     IMPACTFUL_WARNING_REASON_CODES,
     MANUAL_WARNING_REASON_CODES,
     SYSTEM_WARNING_REASON_CODES,
     ClanType,
     DomainStrEnum,
+    DomainValidationError,
     KickCandidateReasonCode,
     KickCandidateStatus,
     NotificationType,
@@ -16,6 +19,7 @@ from app.domain import (
     WarningReasonCode,
     WarningSource,
     WarningStatus,
+    require_domain_enum_value,
 )
 from app.domain import enums as enums_module
 
@@ -157,6 +161,28 @@ def test_domain_str_enum_values_returns_strings() -> None:
         VALUE = "value"
 
     assert SmokeEnum.values() == frozenset({"value"})
+
+
+def test_require_domain_enum_value_returns_enum_member() -> None:
+    """Проверяет централизованную валидацию строкового значения enum."""
+    assert (
+        require_domain_enum_value(
+            ClanType,
+            " main ",
+            field_name="clan_type",
+        )
+        is ClanType.MAIN
+    )
+
+
+def test_require_domain_enum_value_rejects_invalid_value() -> None:
+    """Проверяет ошибку для значения, которого нет в доменном enum."""
+    with pytest.raises(DomainValidationError) as exc_info:
+        require_domain_enum_value(ClanType, "unknown", field_name="clan_type")
+
+    error_message = str(exc_info.value)
+    assert "clan_type должен быть одним из" in error_message
+    assert "main" in error_message
 
 
 def test_domain_enums_do_not_import_db_layer() -> None:

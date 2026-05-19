@@ -25,6 +25,8 @@ def test_dashboard_returns_html_page() -> None:
     assert 'class="bn-sidebar"' in response.text
     assert 'class="bn-topbar"' in response.text
     assert 'class="bn-page"' in response.text
+    assert 'class="bn-section-header"' in response.text
+    assert 'class="bn-card-body"' in response.text
     assert 'class="bn-section bn-dashboard"' in response.text
     assert 'class="bn-card bn-empty-state"' in response.text
     assert "bn-badge" in response.text
@@ -68,6 +70,9 @@ def test_css_layers_are_served() -> None:
     assert ".bn-topbar" in components_response.text
     assert ".bn-page" in components_response.text
     assert ".bn-section" in components_response.text
+    assert ".bn-card-header" in components_response.text
+    assert ".bn-card-body" in components_response.text
+    assert ".bn-card-footer" in components_response.text
     assert ".bn-badge" in components_response.text
     assert ".bn-button" in components_response.text
     assert ".bn-empty-state" in components_response.text
