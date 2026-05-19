@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page_title }} · BestiaryNavigator_bot</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}">
+  </head>
+  <body>
+    <div class="bn-shell">
+      <header class="bn-topbar">
+        <a class="bn-brand" href="/">BestiaryNavigator_bot</a>
+        <span class="bn-topbar__status">UI skeleton</span>
+      </header>
+
+      <main class="bn-main">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </body>
+</html>

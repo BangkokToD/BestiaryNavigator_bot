@@ -4,8 +4,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.core.logging import configure_logging, get_logger
+from app.web import STATIC_DIR, web_router
 
 SERVICE_NAME = "backend"
 
@@ -35,6 +37,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+app.include_router(web_router)
 
 
 @app.get("/health")

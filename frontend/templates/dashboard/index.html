@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="bn-section" aria-labelledby="dashboard-title">
+    <div>
+      <h1 id="dashboard-title" class="bn-page-title">Dashboard</h1>
+      <p class="bn-page-lead">
+        Ранний web-skeleton подключён. Данные кланов, войн, рейдов, ЛВК,
+        warn и Telegram-маршрутов будут добавлены в следующих feature-коммитах.
+      </p>
+    </div>
+
+    <article class="bn-card">
+      <p class="bn-card__eyebrow">Пустое состояние</p>
+      <h2 class="bn-card__title">Кланы ещё не загружены</h2>
+      <p class="bn-card__text">
+        Эта страница не зависит от базы данных и проверяет только Jinja2,
+        базовый layout и подключение static CSS.
+      </p>
+    </article>
+  </section>
+{% endblock %}
