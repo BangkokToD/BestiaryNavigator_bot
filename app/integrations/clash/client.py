@@ -8,14 +8,24 @@ import httpx
 from pydantic import SecretStr
 
 from app.core.settings import Settings, get_settings
+from app.integrations.clash.exceptions import (
+    ClashApiError,
+    ClashForbiddenError,
+    ClashNotFoundError,
+    ClashRateLimitError,
+    ClashServerError,
+    ClashTimeoutError,
+)
+
+_RESPONSE_SNIPPET_MAX_LENGTH = 2048
 
 
 class ClashApiClient:
     """Async HTTP-клиент Clash of Clans API.
 
     Клиент отвечает только за интеграционный HTTP-слой: base URL, Bearer token,
-    timeout, общий request method и закрытие соединений. Доменные сценарии,
-    запись в БД и typed exception mapping добавляются отдельными слоями/коммитами.
+    timeout, общий request method, typed exceptions и закрытие соединений.
+    Доменные сценарии и запись в БД добавляются отдельными слоями/коммитами.
     """
 
     def __init__(
@@ -133,21 +143,35 @@ class ClashApiClient:
 
         Raises:
             ValueError: Если method или endpoint пустые.
-            httpx.HTTPStatusError: Если API вернул 4xx/5xx. Typed mapping будет
-                добавлен отдельным коммитом.
-            httpx.HTTPError: Для сетевых ошибок уровня httpx.
+            ClashApiError: Если API вернул 4xx/5xx.
+            ClashTimeoutError: Если запрос превысил timeout.
         """
         normalized_method = self._normalize_method(method)
         normalized_endpoint = self._normalize_endpoint(endpoint)
 
-        response = await self._http_client.request(
-            normalized_method,
-            normalized_endpoint,
-            headers=self._build_headers(),
-            params=params,
-            json=json_payload,
-        )
-        response.raise_for_status()
+        try:
+            response = await self._http_client.request(
+                normalized_method,
+                normalized_endpoint,
+                headers=self._build_headers(),
+                params=params,
+                json=json_payload,
+            )
+        except httpx.TimeoutException as exc:
+            raise ClashTimeoutError(
+                "Clash API request timed out.",
+                endpoint=normalized_endpoint,
+                method=normalized_method,
+                status_code=None,
+                response_snippet=None,
+            ) from exc
+
+        if response.is_error:
+            raise self._build_api_error(
+                method=normalized_method,
+                endpoint=normalized_endpoint,
+                response=response,
+            )
 
         return response
 
@@ -161,6 +185,63 @@ class ClashApiClient:
             "Accept": "application/json",
             "Authorization": f"Bearer {self._api_token}",
         }
+
+    @classmethod
+    def _build_api_error(
+        cls,
+        *,
+        method: str,
+        endpoint: str,
+        response: httpx.Response,
+    ) -> ClashApiError:
+        """Создаёт typed exception по HTTP-статусу Clash API.
+
+        Args:
+            method: Нормализованный HTTP method.
+            endpoint: Нормализованный относительный endpoint.
+            response: HTTP response с ошибочным статусом.
+
+        Returns:
+            Typed exception, пригодный для будущей записи в `api_errors`.
+        """
+        status_code = response.status_code
+        response_snippet = cls._extract_response_snippet(response)
+        message = f"Clash API returned HTTP {status_code} for {method} {endpoint}."
+
+        if status_code == 403:
+            error_class: type[ClashApiError] = ClashForbiddenError
+        elif status_code == 404:
+            error_class = ClashNotFoundError
+        elif status_code == 429:
+            error_class = ClashRateLimitError
+        elif 500 <= status_code <= 599:
+            error_class = ClashServerError
+        else:
+            error_class = ClashApiError
+
+        return error_class(
+            message,
+            endpoint=endpoint,
+            method=method,
+            status_code=status_code,
+            response_snippet=response_snippet,
+        )
+
+    @staticmethod
+    def _extract_response_snippet(response: httpx.Response) -> str | None:
+        """Извлекает короткий snippet response body без сохранения полного body.
+
+        Args:
+            response: HTTP response Clash API.
+
+        Returns:
+            Непустой snippet длиной до `_RESPONSE_SNIPPET_MAX_LENGTH` или `None`.
+        """
+        text = response.text.strip()
+        if not text:
+            return None
+
+        return text[:_RESPONSE_SNIPPET_MAX_LENGTH]
 
     @staticmethod
     def _normalize_base_url(value: str) -> str:

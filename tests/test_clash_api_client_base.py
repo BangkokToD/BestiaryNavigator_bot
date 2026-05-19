@@ -5,7 +5,15 @@ import pytest
 from pydantic import SecretStr
 
 from app.core.settings import Settings
-from app.integrations.clash import ClashApiClient
+from app.integrations.clash import (
+    ClashApiClient,
+    ClashApiError,
+    ClashForbiddenError,
+    ClashNotFoundError,
+    ClashRateLimitError,
+    ClashServerError,
+    ClashTimeoutError,
+)
 
 VALID_SETTINGS = {
     "APP_ENV": "local",
@@ -85,20 +93,72 @@ async def test_clash_api_client_from_settings_uses_runtime_configuration() -> No
 
 
 @pytest.mark.asyncio
-async def test_clash_api_client_raises_for_error_status() -> None:
-    """Проверяет базовое поведение 4xx/5xx до typed exception mapping."""
+@pytest.mark.parametrize(
+    ("status_code", "expected_error_class"),
+    [
+        (400, ClashApiError),
+        (403, ClashForbiddenError),
+        (404, ClashNotFoundError),
+        (429, ClashRateLimitError),
+        (500, ClashServerError),
+        (503, ClashServerError),
+    ],
+)
+async def test_clash_api_client_maps_error_status_to_typed_exception(
+    status_code: int,
+    expected_error_class: type[ClashApiError],
+) -> None:
+    """Проверяет mapping HTTP-статусов в typed Clash API exceptions."""
+    response_body = "x" * 3000
     client = ClashApiClient(
         base_url="https://api.clashofclans.com/v1",
         api_token="secret-clash-token",
         timeout_seconds=5,
-        transport=httpx.MockTransport(lambda _: httpx.Response(403, json={"reason": "forbidden"})),
+        transport=httpx.MockTransport(lambda _: httpx.Response(status_code, text=response_body)),
     )
 
     try:
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(expected_error_class) as exc_info:
             await client._request("GET", "clans/%232ABC")
     finally:
         await client.aclose()
+
+    error = exc_info.value
+    assert type(error) is expected_error_class
+    assert error.endpoint == "clans/%232ABC"
+    assert error.method == "GET"
+    assert error.status_code == status_code
+    assert error.response_snippet == response_body[:2048]
+    assert len(error.response_snippet) == 2048
+    assert "secret-clash-token" not in str(error)
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_maps_timeout_to_typed_exception() -> None:
+    """Проверяет mapping timeout в ClashTimeoutError."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        """Имитирует timeout transport-уровня."""
+        raise httpx.TimeoutException("Request timed out.", request=request)
+
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(handler),
+    )
+
+    try:
+        with pytest.raises(ClashTimeoutError) as exc_info:
+            await client._request("GET", "clans/%232ABC")
+    finally:
+        await client.aclose()
+
+    error = exc_info.value
+    assert error.endpoint == "clans/%232ABC"
+    assert error.method == "GET"
+    assert error.status_code is None
+    assert error.response_snippet is None
 
 
 @pytest.mark.asyncio
