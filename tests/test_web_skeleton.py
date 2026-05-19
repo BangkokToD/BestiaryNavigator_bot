@@ -23,5 +23,39 @@ def test_static_css_is_served() -> None:
         response = client.get("/static/css/app.css")
 
     assert response.status_code == 200
-    assert ".bn-card" in response.text
-    assert "--bn-bg-page" in response.text
+    assert '@import url("./tokens.css");' in response.text
+    assert '@import url("./base.css");' in response.text
+    assert '@import url("./components.css");' in response.text
+    assert '@import url("./utilities.css");' in response.text
+    assert '@import url("./pages/dashboard.css");' in response.text
+
+
+def test_css_layers_are_served() -> None:
+    """Проверяет раздачу CSS-слоёв через static mount."""
+    with TestClient(app) as client:
+        tokens_response = client.get("/static/css/tokens.css")
+        base_response = client.get("/static/css/base.css")
+        components_response = client.get("/static/css/components.css")
+        utilities_response = client.get("/static/css/utilities.css")
+        dashboard_response = client.get("/static/css/pages/dashboard.css")
+
+    assert tokens_response.status_code == 200
+    assert base_response.status_code == 200
+    assert components_response.status_code == 200
+    assert utilities_response.status_code == 200
+    assert dashboard_response.status_code == 200
+
+    assert "--bn-bg-page" in tokens_response.text
+    assert "color-scheme: dark" in tokens_response.text
+    assert "body" in base_response.text
+    assert ".bn-card" in components_response.text
+    assert ".bn-sr-only" in utilities_response.text
+    assert ".bn-dashboard" in dashboard_response.text
+
+
+def test_templates_do_not_use_inline_styles() -> None:
+    """Проверяет, что ранние шаблоны не используют inline CSS."""
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    assert 'style="' not in response.text

@@ -1,0 +1,90 @@
+.bn-shell {
+  min-height: 100vh;
+}
+
+.bn-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--bn-border-soft);
+  background: var(--bn-topbar-bg);
+  padding: 1rem;
+}
+
+.bn-brand {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.bn-topbar__status {
+  color: var(--bn-text-muted);
+  font-size: 0.875rem;
+}
+
+.bn-main {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2rem;
+}
+
+.bn-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.bn-page-title {
+  margin: 0;
+  font-size: clamp(1.75rem, 6vw, 3rem);
+  line-height: 1;
+}
+
+.bn-page-lead {
+  max-width: 42rem;
+  margin: 0;
+  color: var(--bn-text-soft);
+  line-height: 1.6;
+}
+
+.bn-card {
+  border: 1px solid var(--bn-border-soft);
+  border-radius: var(--bn-radius-lg);
+  background: var(--bn-card-glow), var(--bn-bg-surface);
+  box-shadow: var(--bn-shadow-card);
+  padding: 1rem;
+}
+
+.bn-card__eyebrow {
+  margin: 0 0 0.5rem;
+  color: var(--bn-primary);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.bn-card__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.bn-card__text {
+  margin: 0;
+  color: var(--bn-text-soft);
+  line-height: 1.6;
+}
+
+@media (min-width: 768px) {
+  .bn-topbar {
+    padding-inline: 2rem;
+  }
+
+  .bn-main {
+    padding: 2rem;
+  }
+
+  .bn-card {
+    padding: 1.5rem;
+  }
+}

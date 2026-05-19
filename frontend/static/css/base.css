@@ -1,0 +1,21 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: var(--bn-bg-page);
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bn-bg-page);
+  color: var(--bn-text-main);
+}
+
+a {
+  color: inherit;
+}
