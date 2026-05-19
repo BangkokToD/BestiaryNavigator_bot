@@ -1,8 +1,14 @@
 """Тесты раннего web-skeleton."""
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+TEMPLATES_DIR = PROJECT_ROOT / "frontend" / "templates"
+MACROS_DIR = TEMPLATES_DIR / "shared" / "macros"
 
 
 def test_dashboard_returns_html_page() -> None:
@@ -76,3 +82,51 @@ def test_templates_do_not_use_inline_styles() -> None:
         response = client.get("/")
 
     assert 'style="' not in response.text
+
+
+def test_shared_macro_files_exist() -> None:
+    """Проверяет наличие всех shared Jinja macro-файлов."""
+    expected_macro_files = {
+        "assets.html",
+        "badges.html",
+        "buttons.html",
+        "cards.html",
+        "empty_states.html",
+        "frames.html",
+        "progress.html",
+        "status.html",
+        "tables.html",
+    }
+
+    actual_macro_files = {path.name for path in MACROS_DIR.iterdir() if path.is_file()}
+
+    assert expected_macro_files == actual_macro_files
+
+
+def test_base_template_imports_shared_macros() -> None:
+    """Проверяет, что base layout импортирует shared macros."""
+    base_template = (TEMPLATES_DIR / "base.html").read_text(encoding="utf-8")
+
+    for macro_name in (
+        "assets",
+        "badges",
+        "buttons",
+        "cards",
+        "empty_states",
+        "frames",
+        "progress",
+        "status",
+        "tables",
+    ):
+        assert f"as {macro_name}" in base_template
+
+
+def test_dashboard_uses_macro_rendered_components() -> None:
+    """Проверяет, что macro-rendered badge/button/card видны в HTML."""
+    with TestClient(app) as client:
+        response = client.get("/")
+
+    assert 'class="bn-badge bn-badge--info"' in response.text
+    assert 'class="bn-card bn-empty-state"' in response.text
+    assert 'class="bn-button bn-button--primary"' in response.text
+    assert 'class="bn-button bn-button--ghost"' in response.text

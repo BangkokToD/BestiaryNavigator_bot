@@ -1,0 +1,15 @@
+{% macro image(src, alt, class_name="") -%}
+  {% if src %}
+    <img
+      src="{{ src }}"
+      alt="{{ alt }}"
+      class="{{ class_name }}"
+      loading="lazy"
+    >
+  {% else %}
+    <span
+      class="bn-asset-placeholder{% if class_name %} {{ class_name }}{% endif %}"
+      aria-hidden="true"
+    ></span>
+  {% endif %}
+{%- endmacro %}

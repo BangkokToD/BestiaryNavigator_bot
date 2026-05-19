@@ -1,0 +1,14 @@
+{% macro progress(value=0, max_value=100, label="") -%}
+  <div
+    class="bn-progress"
+    role="progressbar"
+    aria-valuenow="{{ value }}"
+    aria-valuemin="0"
+    aria-valuemax="{{ max_value }}"
+    {% if label %}aria-label="{{ label }}"{% endif %}
+  >
+    <div class="bn-progress-track">
+      <div class="bn-progress-fill"></div>
+    </div>
+  </div>
+{%- endmacro %}

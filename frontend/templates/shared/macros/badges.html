@@ -1,0 +1,5 @@
+{% macro badge(text, variant="muted", class_name="") -%}
+  <span class="bn-badge bn-badge--{{ variant }}{% if class_name %} {{ class_name }}{% endif %}">
+    {{ text }}
+  </span>
+{%- endmacro %}

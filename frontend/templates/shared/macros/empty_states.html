@@ -1,0 +1,12 @@
+{% import "shared/macros/cards.html" as cards %}
+
+{% macro empty_state(title, text, eyebrow="Нет данных", class_name="") -%}
+  {% call cards.card(title=title, eyebrow=eyebrow, class_name="bn-empty-state " ~ class_name) %}
+    <p class="bn-card__text">{{ text }}</p>
+    {% if caller is defined %}
+      <div class="bn-empty-state__actions">
+        {{ caller() }}
+      </div>
+    {% endif %}
+  {% endcall %}
+{%- endmacro %}
