@@ -1,0 +1,40 @@
+{% import "shared/macros/assets.html" as assets %}
+{% import "shared/macros/badges.html" as badges %}
+{% import "shared/macros/buttons.html" as buttons %}
+{% import "shared/macros/cards.html" as cards %}
+{% import "shared/macros/empty_states.html" as empty_states %}
+{% import "shared/macros/frames.html" as frames %}
+{% import "shared/macros/progress.html" as progress %}
+{% import "shared/macros/status.html" as status %}
+{% import "shared/macros/tables.html" as tables %}
+
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page_title }} · BestiaryNavigator_bot</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}">
+  </head>
+  <body>
+    <div class="bn-layout">
+      <aside class="bn-sidebar" aria-label="Основная навигация">
+        <a class="bn-sidebar__brand" href="/">BestiaryNavigator_bot</a>
+        <nav class="bn-sidebar__nav" aria-label="Разделы">
+          <a class="bn-sidebar__link" href="/" aria-current="page">Dashboard</a>
+        </nav>
+      </aside>
+
+      <div class="bn-layout__content">
+        <header class="bn-topbar">
+          <a class="bn-brand" href="/">BestiaryNavigator_bot</a>
+          <span class="bn-topbar__status">UI skeleton</span>
+        </header>
+
+        <main class="bn-page">
+          {% block content %}{% endblock %}
+        </main>
+      </div>
+    </div>
+  </body>
+</html>

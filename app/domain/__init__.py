@@ -14,6 +14,7 @@ from app.domain.enums import (
     WarningReasonCode,
     WarningSource,
     WarningStatus,
+    require_domain_enum_value,
 )
 from app.domain.event_keys import (
     build_all_accounts_left_kick_event_key,
@@ -32,6 +33,7 @@ from app.domain.exceptions import (
     TagValidationError,
 )
 from app.domain.tags import encode_tag_for_clash_url, normalize_clan_tag, normalize_player_tag
+from app.domain.telegram import normalize_message_thread_id
 
 __all__ = [
     "IMPACTFUL_WARNING_REASON_CODES",
@@ -61,5 +63,7 @@ __all__ = [
     "build_war_warning_event_key",
     "encode_tag_for_clash_url",
     "normalize_clan_tag",
+    "normalize_message_thread_id",
     "normalize_player_tag",
+    "require_domain_enum_value",
 ]

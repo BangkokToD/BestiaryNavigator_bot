@@ -3,7 +3,17 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, String, func, true
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    func,
+    true,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, BaseModelMixin, IdMixin
@@ -18,6 +28,12 @@ class NotificationRoute(BaseModelMixin, Base):
     """Маршрут уведомлений `клан + тип уведомления -> Telegram chat/topic`."""
 
     __tablename__ = "notification_routes"
+    __table_args__ = (
+        CheckConstraint(
+            "message_thread_id IS NULL OR message_thread_id > 0",
+            name="message_thread_id_positive",
+        ),
+    )
 
     clan_id: Mapped[int] = mapped_column(
         BigInteger,

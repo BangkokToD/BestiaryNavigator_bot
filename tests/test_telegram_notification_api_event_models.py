@@ -1,6 +1,6 @@
 """Тесты моделей Telegram, уведомлений, API errors, событий и app settings."""
 
-from sqlalchemy import DateTime, String, inspect
+from sqlalchemy import CheckConstraint, DateTime, String, inspect
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.db.models import (
@@ -68,6 +68,13 @@ def test_notification_route_contract_and_unique_expression_index() -> None:
     assert columns.notification_type.nullable is False
     assert columns.message_thread_id.nullable is True
     assert columns.enabled.nullable is False
+
+    check_constraint_names = {
+        constraint.name
+        for constraint in table.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert "ck_notification_routes_message_thread_id_positive" in check_constraint_names
 
     assert_no_ondelete_cascade(columns.clan_id)
     assert_no_ondelete_cascade(columns.chat_id)

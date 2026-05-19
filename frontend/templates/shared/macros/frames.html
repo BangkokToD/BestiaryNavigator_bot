@@ -1,0 +1,7 @@
+{% macro frame(variant="default", class_name="") -%}
+  <div class="bn-frame bn-frame--{{ variant }}{% if class_name %} {{ class_name }}{% endif %}">
+    {% if caller is defined %}
+      {{ caller() }}
+    {% endif %}
+  </div>
+{%- endmacro %}

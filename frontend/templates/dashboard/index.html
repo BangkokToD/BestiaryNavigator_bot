@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="bn-section bn-dashboard" aria-labelledby="dashboard-title">
+    <div class="bn-section-header">
+      {{ badges.badge("UI skeleton", variant="info") }}
+      <h1 id="dashboard-title" class="bn-page-title">Dashboard</h1>
+      <p class="bn-page-lead">
+        Ранний web-skeleton подключён. Данные кланов, войн, рейдов, ЛВК,
+        warn и Telegram-маршрутов будут добавлены в следующих feature-коммитах.
+      </p>
+    </div>
+
+    {% call cards.card(class_name="bn-empty-state") %}
+      {{ badges.badge("Пустое состояние", variant="muted") }}
+      <div>
+        <p class="bn-card-eyebrow">Нет данных</p>
+        <h2 class="bn-card-title">Кланы ещё не загружены</h2>
+        <p class="bn-card-text">
+          Эта страница не зависит от базы данных и проверяет только Jinja2,
+          базовый layout и подключение static CSS.
+        </p>
+      </div>
+      <div class="bn-empty-state__actions">
+        {{ buttons.button_link("/health", "Проверить health", variant="primary") }}
+        {{ buttons.button_link("/static/css/app.css", "Открыть CSS", variant="ghost") }}
+      </div>
+    {% endcall %}
+  </section>
+{% endblock %}

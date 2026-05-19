@@ -1,0 +1,5 @@
+{% import "shared/macros/badges.html" as badges %}
+
+{% macro status_label(text, variant="muted", class_name="") -%}
+  {{ badges.badge(text, variant=variant, class_name=class_name) }}
+{%- endmacro %}
