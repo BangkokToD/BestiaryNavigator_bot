@@ -2,12 +2,14 @@
 
 from collections.abc import Mapping
 from types import TracebackType
-from typing import Self
+from typing import Self, cast
 
 import httpx
 from pydantic import SecretStr
 
 from app.core.settings import Settings, get_settings
+from app.domain.tags import encode_tag_for_clash_url
+from app.integrations.clash.dto import VerifyPlayerTokenResult
 from app.integrations.clash.exceptions import (
     ClashApiError,
     ClashForbiddenError,
@@ -18,6 +20,7 @@ from app.integrations.clash.exceptions import (
 )
 
 _RESPONSE_SNIPPET_MAX_LENGTH = 2048
+type JsonObject = dict[str, object]
 
 
 class ClashApiClient:
@@ -118,6 +121,51 @@ class ClashApiClient:
     async def aclose(self) -> None:
         """Закрывает HTTP-соединения клиента."""
         await self._http_client.aclose()
+
+    async def get_player(self, player_tag: str) -> JsonObject:
+        """Получает профиль игрока по player tag.
+
+        URL-encoding тега выполняется только внутри клиента. Внешние слои
+        передают обычный тег в формате `2ABC` или `#2ABC`.
+
+        Args:
+            player_tag: Тег игрока.
+
+        Returns:
+            JSON-объект профиля игрока.
+        """
+        encoded_player_tag = encode_tag_for_clash_url(player_tag)
+        response = await self._request("GET", f"players/{encoded_player_tag}")
+
+        return self._response_json_object(response)
+
+    async def verify_player_token(
+        self,
+        player_tag: str,
+        token: str,
+    ) -> VerifyPlayerTokenResult:
+        """Проверяет одноразовый API token игрока через Clash API.
+
+        Failed verifytoken с HTTP 200 и статусом `invalid` возвращается как
+        контролируемый typed result. HTTP-ошибки остаются typed exceptions
+        уровня Clash API.
+
+        Args:
+            player_tag: Тег игрока.
+            token: Одноразовый API token из игры.
+
+        Returns:
+            Typed result проверки владения аккаунтом.
+        """
+        encoded_player_tag = encode_tag_for_clash_url(player_tag)
+        normalized_token = self._normalize_verify_token(token)
+        response = await self._request(
+            "POST",
+            f"players/{encoded_player_tag}/verifytoken",
+            json_payload={"token": normalized_token},
+        )
+
+        return VerifyPlayerTokenResult.from_payload(self._response_json_object(response))
 
     async def _request(
         self,
@@ -244,6 +292,25 @@ class ClashApiClient:
         return text[:_RESPONSE_SNIPPET_MAX_LENGTH]
 
     @staticmethod
+    def _response_json_object(response: httpx.Response) -> JsonObject:
+        """Возвращает JSON body как объект.
+
+        Args:
+            response: HTTP response Clash API.
+
+        Returns:
+            JSON body как словарь.
+
+        Raises:
+            ValueError: Если API вернул не JSON object.
+        """
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError("Clash API response должен быть JSON object.")
+
+        return cast(JsonObject, payload)
+
+    @staticmethod
     def _normalize_base_url(value: str) -> str:
         """Нормализует base URL для `httpx.AsyncClient`.
 
@@ -300,6 +367,25 @@ class ClashApiClient:
             raise ValueError("Clash API timeout должен быть больше 0.")
 
         return httpx.Timeout(value)
+
+    @staticmethod
+    def _normalize_verify_token(value: str) -> str:
+        """Нормализует одноразовый verifytoken без сохранения.
+
+        Args:
+            value: Сырой одноразовый token из игры.
+
+        Returns:
+            Token без пробелов по краям.
+
+        Raises:
+            ValueError: Если token пустой.
+        """
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Verifytoken не может быть пустым.")
+
+        return normalized
 
     @staticmethod
     def _normalize_method(value: str) -> str:

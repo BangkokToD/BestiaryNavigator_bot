@@ -1,9 +1,14 @@
 """Тесты базового Clash API HTTP client."""
 
+import json
+from pathlib import Path
+
 import httpx
 import pytest
 from pydantic import SecretStr
 
+import app.integrations.clash.client as clash_client_module
+import app.integrations.clash.dto as clash_dto_module
 from app.core.settings import Settings
 from app.integrations.clash import (
     ClashApiClient,
@@ -13,6 +18,7 @@ from app.integrations.clash import (
     ClashRateLimitError,
     ClashServerError,
     ClashTimeoutError,
+    VerifyPlayerTokenResult,
 )
 
 VALID_SETTINGS = {
@@ -90,6 +96,120 @@ async def test_clash_api_client_from_settings_uses_runtime_configuration() -> No
     assert str(captured_request.url) == "https://api.clashofclans.com/v1/players/%232ABC"
     assert captured_request.headers["authorization"] == "Bearer test-clash-token-123"
     assert client.is_closed is True
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_get_player_encodes_player_tag_inside_client() -> None:
+    """Проверяет get_player и URL-encoding тега внутри клиента."""
+    captured_request: httpx.Request | None = None
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        """Сохраняет request и возвращает payload игрока."""
+        nonlocal captured_request
+        captured_request = request
+        return httpx.Response(200, json={"tag": "#2ABC", "name": "Bangkok"})
+
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(handler),
+    )
+
+    try:
+        payload = await client.get_player("2abc")
+    finally:
+        await client.aclose()
+
+    assert payload == {"tag": "#2ABC", "name": "Bangkok"}
+    assert captured_request is not None
+    assert str(captured_request.url) == "https://api.clashofclans.com/v1/players/%232ABC"
+    assert captured_request.method == "GET"
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_verify_player_token_returns_success_result() -> None:
+    """Проверяет successful verifytoken как typed result."""
+    captured_request: httpx.Request | None = None
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        """Сохраняет request и возвращает успешный verifytoken response."""
+        nonlocal captured_request
+        captured_request = request
+        return httpx.Response(
+            200,
+            json={
+                "tag": "#2ABC",
+                "token": "one-time-token",
+                "status": "ok",
+            },
+        )
+
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(handler),
+    )
+
+    try:
+        result = await client.verify_player_token("#2abc", " one-time-token ")
+    finally:
+        await client.aclose()
+
+    assert result == VerifyPlayerTokenResult(player_tag="#2ABC", status="ok")
+    assert result.is_successful is True
+    assert captured_request is not None
+    assert str(captured_request.url) == (
+        "https://api.clashofclans.com/v1/players/%232ABC/verifytoken"
+    )
+    assert captured_request.method == "POST"
+    assert json.loads(captured_request.content.decode("utf-8")) == {"token": "one-time-token"}
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_verify_player_token_returns_failed_result() -> None:
+    """Проверяет failed verifytoken как контролируемый typed result."""
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                200,
+                json={
+                    "tag": "#2ABC",
+                    "token": "wrong-token",
+                    "status": "invalid",
+                },
+            )
+        ),
+    )
+
+    try:
+        result = await client.verify_player_token("2abc", "wrong-token")
+    finally:
+        await client.aclose()
+
+    assert result == VerifyPlayerTokenResult(player_tag="#2ABC", status="invalid")
+    assert result.is_successful is False
+
+
+@pytest.mark.asyncio
+async def test_clash_api_client_verify_player_token_rejects_empty_token() -> None:
+    """Проверяет запрет пустого verifytoken."""
+    client = ClashApiClient(
+        base_url="https://api.clashofclans.com/v1",
+        api_token="secret-clash-token",
+        timeout_seconds=5,
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json={"ok": True})),
+    )
+
+    try:
+        with pytest.raises(ValueError):
+            await client.verify_player_token("2abc", "   ")
+    finally:
+        await client.aclose()
 
 
 @pytest.mark.asyncio
@@ -188,3 +308,12 @@ def test_clash_api_client_repr_does_not_expose_token() -> None:
     )
 
     assert "secret-clash-token" not in repr(client)
+
+
+def test_clash_api_client_endpoint_methods_do_not_import_db_layer() -> None:
+    """Проверяет, что Clash API client не зависит от DB-layer."""
+    client_source = Path(clash_client_module.__file__).read_text(encoding="utf-8")
+    dto_source = Path(clash_dto_module.__file__).read_text(encoding="utf-8")
+    joined_source = f"{client_source}\n{dto_source}"
+
+    assert "app.db" not in joined_source

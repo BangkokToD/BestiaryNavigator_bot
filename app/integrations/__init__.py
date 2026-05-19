@@ -8,6 +8,7 @@ from app.integrations.clash import (
     ClashRateLimitError,
     ClashServerError,
     ClashTimeoutError,
+    VerifyPlayerTokenResult,
 )
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "ClashRateLimitError",
     "ClashServerError",
     "ClashTimeoutError",
+    "VerifyPlayerTokenResult",
 ]

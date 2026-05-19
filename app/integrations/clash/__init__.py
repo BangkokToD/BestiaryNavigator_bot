@@ -1,6 +1,7 @@
 """Интеграция с Clash of Clans API."""
 
 from app.integrations.clash.client import ClashApiClient
+from app.integrations.clash.dto import VerifyPlayerTokenResult
 from app.integrations.clash.exceptions import (
     ClashApiError,
     ClashForbiddenError,
@@ -18,4 +19,5 @@ __all__ = [
     "ClashRateLimitError",
     "ClashServerError",
     "ClashTimeoutError",
+    "VerifyPlayerTokenResult",
 ]
