@@ -10,6 +10,13 @@ from app.services.account_linking import (
     SqlAlchemyAccountRepository,
     SqlAlchemyPlayerEventRepository,
 )
+from app.services.account_unlinking import (
+    AccountUnlinkingError,
+    AccountUnlinkingRepository,
+    AccountUnlinkingResult,
+    AccountUnlinkingService,
+    SqlAlchemyAccountUnlinkingRepository,
+)
 from app.services.clans import (
     ClanManagementError,
     ClanManagementService,
@@ -29,6 +36,10 @@ __all__ = [
     "AccountLinkingResult",
     "AccountLinkingService",
     "AccountRepository",
+    "AccountUnlinkingError",
+    "AccountUnlinkingRepository",
+    "AccountUnlinkingResult",
+    "AccountUnlinkingService",
     "ClanManagementError",
     "ClanManagementService",
     "ClanNotFoundError",
@@ -37,6 +48,7 @@ __all__ = [
     "ClashClanProvider",
     "PlayerEventRepository",
     "SqlAlchemyAccountRepository",
+    "SqlAlchemyAccountUnlinkingRepository",
     "SqlAlchemyClanRepository",
     "SqlAlchemyPlayerEventRepository",
     "SqlAlchemyTelegramUserRepository",
