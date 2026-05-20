@@ -25,6 +25,22 @@ from app.services.clans import (
     ClashClanProvider,
     SqlAlchemyClanRepository,
 )
+from app.services.kick_candidate_decisions import (
+    KickCandidateDecisionError,
+    KickCandidateDecisionRepository,
+    KickCandidateDecisionResult,
+    KickCandidateDecisionService,
+    KickCandidateInvalidTransitionError,
+    KickCandidateNotFoundError,
+    SqlAlchemyKickCandidateDecisionRepository,
+)
+from app.services.kick_candidates import (
+    KickCandidateCreationResult,
+    KickCandidateRepository,
+    KickCandidateService,
+    KickCandidateServiceError,
+    SqlAlchemyKickCandidateRepository,
+)
 from app.services.member_lifecycle import (
     MemberLifecycleError,
     MemberLifecycleRepository,
@@ -36,6 +52,23 @@ from app.services.telegram_users import (
     SqlAlchemyTelegramUserRepository,
     TelegramUserRepository,
     TelegramUserService,
+)
+from app.services.warning_creation import (
+    SqlAlchemyWarningRepository,
+    WarningAffectedAccount,
+    WarningCreationError,
+    WarningCreationRepository,
+    WarningCreationResult,
+    WarningCreationService,
+)
+from app.services.warning_lifecycle import (
+    SqlAlchemyWarningLifecycleRepository,
+    WarningCancellationResult,
+    WarningExpirationResult,
+    WarningLifecycleError,
+    WarningLifecycleRepository,
+    WarningLifecycleService,
+    WarningNotFoundError,
 )
 
 __all__ = [
@@ -53,6 +86,16 @@ __all__ = [
     "ClanRepository",
     "ClashAccountProvider",
     "ClashClanProvider",
+    "KickCandidateCreationResult",
+    "KickCandidateDecisionError",
+    "KickCandidateDecisionRepository",
+    "KickCandidateDecisionResult",
+    "KickCandidateDecisionService",
+    "KickCandidateInvalidTransitionError",
+    "KickCandidateNotFoundError",
+    "KickCandidateRepository",
+    "KickCandidateService",
+    "KickCandidateServiceError",
     "MemberLifecycleError",
     "MemberLifecycleRepository",
     "MemberLifecycleResult",
@@ -61,9 +104,24 @@ __all__ = [
     "SqlAlchemyAccountRepository",
     "SqlAlchemyAccountUnlinkingRepository",
     "SqlAlchemyClanRepository",
+    "SqlAlchemyKickCandidateDecisionRepository",
+    "SqlAlchemyKickCandidateRepository",
     "SqlAlchemyMemberLifecycleRepository",
     "SqlAlchemyPlayerEventRepository",
     "SqlAlchemyTelegramUserRepository",
+    "SqlAlchemyWarningLifecycleRepository",
+    "SqlAlchemyWarningRepository",
     "TelegramUserRepository",
     "TelegramUserService",
+    "WarningAffectedAccount",
+    "WarningCancellationResult",
+    "WarningCreationError",
+    "WarningCreationRepository",
+    "WarningCreationResult",
+    "WarningCreationService",
+    "WarningExpirationResult",
+    "WarningLifecycleError",
+    "WarningLifecycleRepository",
+    "WarningLifecycleService",
+    "WarningNotFoundError",
 ]
