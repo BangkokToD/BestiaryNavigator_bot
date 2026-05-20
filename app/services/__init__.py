@@ -25,6 +25,13 @@ from app.services.clans import (
     ClashClanProvider,
     SqlAlchemyClanRepository,
 )
+from app.services.kick_candidates import (
+    KickCandidateCreationResult,
+    KickCandidateRepository,
+    KickCandidateService,
+    KickCandidateServiceError,
+    SqlAlchemyKickCandidateRepository,
+)
 from app.services.member_lifecycle import (
     MemberLifecycleError,
     MemberLifecycleRepository,
@@ -70,6 +77,10 @@ __all__ = [
     "ClanRepository",
     "ClashAccountProvider",
     "ClashClanProvider",
+    "KickCandidateCreationResult",
+    "KickCandidateRepository",
+    "KickCandidateService",
+    "KickCandidateServiceError",
     "MemberLifecycleError",
     "MemberLifecycleRepository",
     "MemberLifecycleResult",
@@ -78,6 +89,7 @@ __all__ = [
     "SqlAlchemyAccountRepository",
     "SqlAlchemyAccountUnlinkingRepository",
     "SqlAlchemyClanRepository",
+    "SqlAlchemyKickCandidateRepository",
     "SqlAlchemyMemberLifecycleRepository",
     "SqlAlchemyPlayerEventRepository",
     "SqlAlchemyTelegramUserRepository",
