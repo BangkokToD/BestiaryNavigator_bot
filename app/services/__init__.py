@@ -25,6 +25,13 @@ from app.services.clans import (
     ClashClanProvider,
     SqlAlchemyClanRepository,
 )
+from app.services.member_lifecycle import (
+    MemberLifecycleError,
+    MemberLifecycleRepository,
+    MemberLifecycleResult,
+    MemberLifecycleService,
+    SqlAlchemyMemberLifecycleRepository,
+)
 from app.services.telegram_users import (
     SqlAlchemyTelegramUserRepository,
     TelegramUserRepository,
@@ -46,10 +53,15 @@ __all__ = [
     "ClanRepository",
     "ClashAccountProvider",
     "ClashClanProvider",
+    "MemberLifecycleError",
+    "MemberLifecycleRepository",
+    "MemberLifecycleResult",
+    "MemberLifecycleService",
     "PlayerEventRepository",
     "SqlAlchemyAccountRepository",
     "SqlAlchemyAccountUnlinkingRepository",
     "SqlAlchemyClanRepository",
+    "SqlAlchemyMemberLifecycleRepository",
     "SqlAlchemyPlayerEventRepository",
     "SqlAlchemyTelegramUserRepository",
     "TelegramUserRepository",
