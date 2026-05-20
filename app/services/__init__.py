@@ -8,6 +8,11 @@ from app.services.clans import (
     ClashClanProvider,
     SqlAlchemyClanRepository,
 )
+from app.services.telegram_users import (
+    SqlAlchemyTelegramUserRepository,
+    TelegramUserRepository,
+    TelegramUserService,
+)
 
 __all__ = [
     "ClanManagementError",
@@ -16,4 +21,7 @@ __all__ = [
     "ClanRepository",
     "ClashClanProvider",
     "SqlAlchemyClanRepository",
+    "SqlAlchemyTelegramUserRepository",
+    "TelegramUserRepository",
+    "TelegramUserService",
 ]
