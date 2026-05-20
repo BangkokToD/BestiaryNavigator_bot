@@ -37,6 +37,14 @@ from app.services.telegram_users import (
     TelegramUserRepository,
     TelegramUserService,
 )
+from app.services.warning_creation import (
+    SqlAlchemyWarningRepository,
+    WarningAffectedAccount,
+    WarningCreationError,
+    WarningCreationRepository,
+    WarningCreationResult,
+    WarningCreationService,
+)
 
 __all__ = [
     "AccountLinkingError",
@@ -64,6 +72,12 @@ __all__ = [
     "SqlAlchemyMemberLifecycleRepository",
     "SqlAlchemyPlayerEventRepository",
     "SqlAlchemyTelegramUserRepository",
+    "SqlAlchemyWarningRepository",
     "TelegramUserRepository",
     "TelegramUserService",
+    "WarningAffectedAccount",
+    "WarningCreationError",
+    "WarningCreationRepository",
+    "WarningCreationResult",
+    "WarningCreationService",
 ]
