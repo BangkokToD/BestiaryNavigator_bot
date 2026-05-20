@@ -45,6 +45,15 @@ from app.services.warning_creation import (
     WarningCreationResult,
     WarningCreationService,
 )
+from app.services.warning_lifecycle import (
+    SqlAlchemyWarningLifecycleRepository,
+    WarningCancellationResult,
+    WarningExpirationResult,
+    WarningLifecycleError,
+    WarningLifecycleRepository,
+    WarningLifecycleService,
+    WarningNotFoundError,
+)
 
 __all__ = [
     "AccountLinkingError",
@@ -72,12 +81,19 @@ __all__ = [
     "SqlAlchemyMemberLifecycleRepository",
     "SqlAlchemyPlayerEventRepository",
     "SqlAlchemyTelegramUserRepository",
+    "SqlAlchemyWarningLifecycleRepository",
     "SqlAlchemyWarningRepository",
     "TelegramUserRepository",
     "TelegramUserService",
     "WarningAffectedAccount",
+    "WarningCancellationResult",
     "WarningCreationError",
     "WarningCreationRepository",
     "WarningCreationResult",
     "WarningCreationService",
+    "WarningExpirationResult",
+    "WarningLifecycleError",
+    "WarningLifecycleRepository",
+    "WarningLifecycleService",
+    "WarningNotFoundError",
 ]
