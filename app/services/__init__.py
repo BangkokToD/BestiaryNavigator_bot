@@ -48,6 +48,13 @@ from app.services.member_lifecycle import (
     MemberLifecycleService,
     SqlAlchemyMemberLifecycleRepository,
 )
+from app.services.notification_logs import (
+    NotificationLogRepository,
+    NotificationLogResult,
+    NotificationLogService,
+    NotificationLogServiceError,
+    SqlAlchemyNotificationLogRepository,
+)
 from app.services.notification_routes import (
     NotificationRouteClanNotFoundError,
     NotificationRouteMutationResult,
@@ -111,6 +118,10 @@ __all__ = [
     "MemberLifecycleRepository",
     "MemberLifecycleResult",
     "MemberLifecycleService",
+    "NotificationLogRepository",
+    "NotificationLogResult",
+    "NotificationLogService",
+    "NotificationLogServiceError",
     "NotificationRouteClanNotFoundError",
     "NotificationRouteMutationResult",
     "NotificationRouteNotFoundError",
@@ -126,6 +137,7 @@ __all__ = [
     "SqlAlchemyKickCandidateDecisionRepository",
     "SqlAlchemyKickCandidateRepository",
     "SqlAlchemyMemberLifecycleRepository",
+    "SqlAlchemyNotificationLogRepository",
     "SqlAlchemyNotificationRouteRepository",
     "SqlAlchemyPlayerEventRepository",
     "SqlAlchemyTelegramUserRepository",
