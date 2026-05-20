@@ -25,6 +25,15 @@ from app.services.clans import (
     ClashClanProvider,
     SqlAlchemyClanRepository,
 )
+from app.services.kick_candidate_decisions import (
+    KickCandidateDecisionError,
+    KickCandidateDecisionRepository,
+    KickCandidateDecisionResult,
+    KickCandidateDecisionService,
+    KickCandidateInvalidTransitionError,
+    KickCandidateNotFoundError,
+    SqlAlchemyKickCandidateDecisionRepository,
+)
 from app.services.kick_candidates import (
     KickCandidateCreationResult,
     KickCandidateRepository,
@@ -78,6 +87,12 @@ __all__ = [
     "ClashAccountProvider",
     "ClashClanProvider",
     "KickCandidateCreationResult",
+    "KickCandidateDecisionError",
+    "KickCandidateDecisionRepository",
+    "KickCandidateDecisionResult",
+    "KickCandidateDecisionService",
+    "KickCandidateInvalidTransitionError",
+    "KickCandidateNotFoundError",
     "KickCandidateRepository",
     "KickCandidateService",
     "KickCandidateServiceError",
@@ -89,6 +104,7 @@ __all__ = [
     "SqlAlchemyAccountRepository",
     "SqlAlchemyAccountUnlinkingRepository",
     "SqlAlchemyClanRepository",
+    "SqlAlchemyKickCandidateDecisionRepository",
     "SqlAlchemyKickCandidateRepository",
     "SqlAlchemyMemberLifecycleRepository",
     "SqlAlchemyPlayerEventRepository",
