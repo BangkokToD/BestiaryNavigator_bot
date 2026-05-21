@@ -63,6 +63,13 @@ from app.worker.jobs.expire_warnings_by_cwl_season import (
     WarningExpirationProcessor,
     register_expire_warnings_by_cwl_season_job,
 )
+from app.worker.jobs.handle_api_error_policies import (
+    HANDLE_API_ERROR_POLICIES_JOB_NAME,
+    ApiErrorPolicyProcessor,
+    HandleApiErrorPoliciesJob,
+    HandleApiErrorPoliciesJobResult,
+    register_handle_api_error_policies_job,
+)
 from app.worker.jobs.send_scheduled_notifications import (
     SEND_SCHEDULED_NOTIFICATIONS_JOB_NAME,
     NotificationScheduleConfig,
@@ -140,6 +147,7 @@ __all__ = [
     "DETECT_RAID_VIOLATIONS_JOB_NAME",
     "DETECT_UNLINKED_ACCOUNTS_JOB_NAME",
     "EXPIRE_WARNINGS_BY_CWL_SEASON_JOB_NAME",
+    "HANDLE_API_ERROR_POLICIES_JOB_NAME",
     "SEND_SCHEDULED_NOTIFICATIONS_JOB_NAME",
     "SYNC_CLANS_JOB_NAME",
     "SYNC_CURRENT_WARS_JOB_NAME",
@@ -147,6 +155,7 @@ __all__ = [
     "SYNC_MEMBERS_JOB_NAME",
     "SYNC_PLAYER_PROFILES_JOB_NAME",
     "SYNC_RAIDS_JOB_NAME",
+    "ApiErrorPolicyProcessor",
     "ClashClanMembersProvider",
     "ClashClanSyncProvider",
     "ClashCurrentWarProvider",
@@ -175,6 +184,8 @@ __all__ = [
     "ExpireWarningsByCwlSeasonJob",
     "ExpireWarningsByCwlSeasonJobResult",
     "ExpireWarningsByCwlSeasonRepository",
+    "HandleApiErrorPoliciesJob",
+    "HandleApiErrorPoliciesJobResult",
     "ImpactfulWarningsCandidate",
     "KickCandidateCreator",
     "LinkedAccountPresence",
@@ -233,6 +244,7 @@ __all__ = [
     "register_detect_raid_violations_job",
     "register_detect_unlinked_accounts_job",
     "register_expire_warnings_by_cwl_season_job",
+    "register_handle_api_error_policies_job",
     "register_send_scheduled_notifications_job",
     "register_sync_clans_job",
     "register_sync_current_wars_job",

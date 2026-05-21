@@ -38,6 +38,21 @@ class TelegramNotificationSender(Protocol):
             Результат отправки.
         """
 
+    async def send_to_chat(
+        self,
+        *,
+        chat_id: int,
+        notification: RenderedNotification,
+        message_thread_id: int | None = None,
+    ) -> TelegramSendResult:
+        """Отправляет уведомление напрямую в Telegram chat.
+
+        Args:
+            chat_id: Telegram chat id.
+            notification: Отрендеренное уведомление.
+            message_thread_id: Topic/thread id или `None`.
+        """
+
 
 class AiogramTelegramNotificationSender:
     """Telegram sender на базе aiogram Bot.
@@ -118,6 +133,39 @@ class AiogramTelegramNotificationSender:
         }
         if route.message_thread_id is not None:
             kwargs["message_thread_id"] = route.message_thread_id
+        if notification.parse_mode is not None:
+            kwargs["parse_mode"] = notification.parse_mode
+
+        message = await self._bot.send_message(**kwargs)
+        message_id = getattr(message, "message_id", None)
+        if not isinstance(message_id, int) or message_id <= 0:
+            raise TelegramNotificationSenderError("Telegram не вернул корректный message_id.")
+
+        return TelegramSendResult(message_id=message_id)
+
+    async def send_to_chat(
+        self,
+        *,
+        chat_id: int,
+        notification: RenderedNotification,
+        message_thread_id: int | None = None,
+    ) -> TelegramSendResult:
+        """Отправляет plain text уведомление напрямую в Telegram chat.
+
+        Args:
+            chat_id: Telegram chat id.
+            notification: Отрендеренное уведомление.
+            message_thread_id: Topic/thread id или `None`.
+
+        Returns:
+            Результат отправки.
+        """
+        kwargs: dict[str, object] = {
+            "chat_id": chat_id,
+            "text": notification.text,
+        }
+        if message_thread_id is not None:
+            kwargs["message_thread_id"] = message_thread_id
         if notification.parse_mode is not None:
             kwargs["parse_mode"] = notification.parse_mode
 

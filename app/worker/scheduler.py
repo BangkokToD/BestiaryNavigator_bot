@@ -399,6 +399,7 @@ def create_default_worker_registry(*, default_interval_seconds: int) -> WorkerJo
         register_detect_raid_violations_job,
         register_detect_unlinked_accounts_job,
         register_expire_warnings_by_cwl_season_job,
+        register_handle_api_error_policies_job,
         register_send_scheduled_notifications_job,
         register_sync_clans_job,
         register_sync_current_wars_job,
@@ -422,6 +423,7 @@ def create_default_worker_registry(*, default_interval_seconds: int) -> WorkerJo
     register_detect_raid_violations_job(registry)
     register_expire_warnings_by_cwl_season_job(registry)
     register_send_scheduled_notifications_job(registry)
+    register_handle_api_error_policies_job(registry)
     return registry
 
 
