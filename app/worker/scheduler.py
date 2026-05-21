@@ -392,11 +392,16 @@ def create_default_worker_registry(*, default_interval_seconds: int) -> WorkerJo
     Returns:
         Registry с jobs, доступными текущему worker runtime.
     """
-    from app.worker.jobs import register_sync_clans_job, register_sync_members_job
+    from app.worker.jobs import (
+        register_sync_clans_job,
+        register_sync_members_job,
+        register_sync_player_profiles_job,
+    )
 
     registry = WorkerJobRegistry(default_interval_seconds=default_interval_seconds)
     register_sync_clans_job(registry)
     register_sync_members_job(registry)
+    register_sync_player_profiles_job(registry)
     return registry
 
 
