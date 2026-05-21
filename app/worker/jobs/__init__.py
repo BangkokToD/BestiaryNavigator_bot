@@ -12,6 +12,16 @@ from app.worker.jobs.detect_kick_candidates import (
     TelegramUserAccountPresence,
     register_detect_kick_candidates_job,
 )
+from app.worker.jobs.detect_missed_war_attacks import (
+    DETECT_MISSED_WAR_ATTACKS_JOB_NAME,
+    DetectMissedWarAttacksJob,
+    DetectMissedWarAttacksJobResult,
+    DetectMissedWarAttacksRepository,
+    MissedWarAttackCandidate,
+    SqlAlchemyDetectMissedWarAttacksRepository,
+    WarAttackWarningCreator,
+    register_detect_missed_war_attacks_job,
+)
 from app.worker.jobs.detect_unlinked_accounts import (
     DETECT_UNLINKED_ACCOUNTS_JOB_NAME,
     DetectUnlinkedAccountsJob,
@@ -84,6 +94,7 @@ from app.worker.jobs.sync_raids import (
 
 __all__ = [
     "DETECT_KICK_CANDIDATES_JOB_NAME",
+    "DETECT_MISSED_WAR_ATTACKS_JOB_NAME",
     "DETECT_UNLINKED_ACCOUNTS_JOB_NAME",
     "SYNC_CLANS_JOB_NAME",
     "SYNC_CURRENT_WARS_JOB_NAME",
@@ -101,6 +112,9 @@ __all__ = [
     "DetectKickCandidatesJob",
     "DetectKickCandidatesJobResult",
     "DetectKickCandidatesRepository",
+    "DetectMissedWarAttacksJob",
+    "DetectMissedWarAttacksJobResult",
+    "DetectMissedWarAttacksRepository",
     "DetectUnlinkedAccountsJob",
     "DetectUnlinkedAccountsJobResult",
     "DetectUnlinkedAccountsRepository",
@@ -108,9 +122,11 @@ __all__ = [
     "KickCandidateCreator",
     "LinkedAccountPresence",
     "MemberLifecycleProcessor",
+    "MissedWarAttackCandidate",
     "PlayerProfileData",
     "RaidSeasonData",
     "SqlAlchemyDetectKickCandidatesRepository",
+    "SqlAlchemyDetectMissedWarAttacksRepository",
     "SqlAlchemyDetectUnlinkedAccountsRepository",
     "SqlAlchemySyncClansRepository",
     "SqlAlchemySyncCurrentWarsRepository",
@@ -139,8 +155,10 @@ __all__ = [
     "TelegramUserAccountPresence",
     "UnlinkedAccountCandidate",
     "UnlinkedAccountCandidateCreator",
+    "WarAttackWarningCreator",
     "WarSnapshotData",
     "register_detect_kick_candidates_job",
+    "register_detect_missed_war_attacks_job",
     "register_detect_unlinked_accounts_job",
     "register_sync_clans_job",
     "register_sync_current_wars_job",
