@@ -1,5 +1,15 @@
 """Worker jobs приложения."""
 
+from app.worker.jobs.detect_unlinked_accounts import (
+    DETECT_UNLINKED_ACCOUNTS_JOB_NAME,
+    DetectUnlinkedAccountsJob,
+    DetectUnlinkedAccountsJobResult,
+    DetectUnlinkedAccountsRepository,
+    SqlAlchemyDetectUnlinkedAccountsRepository,
+    UnlinkedAccountCandidate,
+    UnlinkedAccountCandidateCreator,
+    register_detect_unlinked_accounts_job,
+)
 from app.worker.jobs.sync_clans import (
     SYNC_CLANS_JOB_NAME,
     ClashClanSyncProvider,
@@ -61,6 +71,7 @@ from app.worker.jobs.sync_raids import (
 )
 
 __all__ = [
+    "DETECT_UNLINKED_ACCOUNTS_JOB_NAME",
     "SYNC_CLANS_JOB_NAME",
     "SYNC_CURRENT_WARS_JOB_NAME",
     "SYNC_CWL_JOB_NAME",
@@ -74,9 +85,13 @@ __all__ = [
     "ClashPlayerProfileProvider",
     "ClashRaidSeasonsProvider",
     "CwlWarData",
+    "DetectUnlinkedAccountsJob",
+    "DetectUnlinkedAccountsJobResult",
+    "DetectUnlinkedAccountsRepository",
     "MemberLifecycleProcessor",
     "PlayerProfileData",
     "RaidSeasonData",
+    "SqlAlchemyDetectUnlinkedAccountsRepository",
     "SqlAlchemySyncClansRepository",
     "SqlAlchemySyncCurrentWarsRepository",
     "SqlAlchemySyncCwlRepository",
@@ -101,7 +116,10 @@ __all__ = [
     "SyncRaidsJob",
     "SyncRaidsJobResult",
     "SyncRaidsRepository",
+    "UnlinkedAccountCandidate",
+    "UnlinkedAccountCandidateCreator",
     "WarSnapshotData",
+    "register_detect_unlinked_accounts_job",
     "register_sync_clans_job",
     "register_sync_current_wars_job",
     "register_sync_cwl_job",
