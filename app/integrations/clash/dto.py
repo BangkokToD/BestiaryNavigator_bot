@@ -178,6 +178,10 @@ class ClashCwlWar:
     season: str | None
     clan_tags: tuple[str, ...]
     rounds: tuple[tuple[str, ...], ...]
+    start_time: str | None = None
+    end_time: str | None = None
+    clan: ClashWarSideSummary | None = None
+    opponent: ClashWarSideSummary | None = None
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, object]) -> Self:
@@ -188,6 +192,10 @@ class ClashCwlWar:
             season=_optional_str_field(payload, "season"),
             clan_tags=_extract_clan_tags(payload),
             rounds=_extract_rounds(payload),
+            start_time=_optional_str_field(payload, "startTime"),
+            end_time=_optional_str_field(payload, "endTime"),
+            clan=_optional_war_side(payload, "clan"),
+            opponent=_optional_war_side(payload, "opponent"),
         )
 
 

@@ -395,6 +395,7 @@ def create_default_worker_registry(*, default_interval_seconds: int) -> WorkerJo
     from app.worker.jobs import (
         register_sync_clans_job,
         register_sync_current_wars_job,
+        register_sync_cwl_job,
         register_sync_members_job,
         register_sync_player_profiles_job,
     )
@@ -404,6 +405,7 @@ def create_default_worker_registry(*, default_interval_seconds: int) -> WorkerJo
     register_sync_members_job(registry)
     register_sync_player_profiles_job(registry)
     register_sync_current_wars_job(registry)
+    register_sync_cwl_job(registry)
     return registry
 
 
