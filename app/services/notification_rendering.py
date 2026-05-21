@@ -56,6 +56,18 @@ class WarReminderPayload:
 
 
 @dataclass(frozen=True, slots=True)
+class WarEndedPayload:
+    """Payload уведомления об окончании войны."""
+
+    clan_name: str
+    opponent_name: str
+    our_stars: int
+    opponent_stars: int
+    our_destruction: float
+    opponent_destruction: float
+
+
+@dataclass(frozen=True, slots=True)
 class RaidReportPayload:
     """Payload отчёта по рейдам."""
 
@@ -96,6 +108,22 @@ class KickCandidatesEveningPayload:
     """Payload вечернего списка кандидатов на кик."""
 
     items: list[KickCandidateNotificationItem]
+
+
+@dataclass(frozen=True, slots=True)
+class UnlinkedAccountNotificationItem:
+    """Один непривязанный аккаунт в вечернем списке."""
+
+    player_name: str
+    player_tag: str
+    first_seen_text: str
+
+
+@dataclass(frozen=True, slots=True)
+class UnlinkedAccountsEveningPayload:
+    """Payload вечернего списка непривязанных аккаунтов."""
+
+    items: list[UnlinkedAccountNotificationItem]
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,6 +252,36 @@ class NotificationRenderer:
             payload_summary=f"War reminder {notification_type.value} for {payload.clan_name}",
         )
 
+    def render_war_ended(self, payload: WarEndedPayload) -> RenderedNotification:
+        """Рендерит уведомление об окончании войны.
+
+        Args:
+            payload: Данные завершённой войны.
+
+        Returns:
+            Готовое уведомление.
+        """
+        clan_name = _required_text(payload.clan_name, field_name="clan_name")
+        opponent_name = _required_text(payload.opponent_name, field_name="opponent_name")
+        our_stars = _validate_non_negative_int(payload.our_stars, field_name="our_stars")
+        opponent_stars = _validate_non_negative_int(
+            payload.opponent_stars,
+            field_name="opponent_stars",
+        )
+        text = _join_lines(
+            "Война закончилась",
+            f"Клан: {clan_name}",
+            f"Соперник: {opponent_name}",
+            f"Звёзды: {our_stars} — {opponent_stars}",
+            f"Разрушение: {payload.our_destruction:.2f}% — {payload.opponent_destruction:.2f}%",
+        )
+
+        return RenderedNotification(
+            notification_type=NotificationType.WAR_ENDED,
+            text=text,
+            payload_summary=f"War ended for {payload.clan_name}",
+        )
+
     def render_raid_report(self, payload: RaidReportPayload) -> RenderedNotification:
         """Рендерит отчёт по рейдам.
 
@@ -347,6 +405,36 @@ class NotificationRenderer:
             notification_type=NotificationType.KICK_CANDIDATES_EVENING,
             text=text,
             payload_summary=f"Kick candidates evening: {len(payload.items)} item(s)",
+        )
+
+    def render_unlinked_accounts_evening(
+        self,
+        payload: UnlinkedAccountsEveningPayload,
+    ) -> RenderedNotification:
+        """Рендерит вечерний список непривязанных аккаунтов.
+
+        Args:
+            payload: Список непривязанных аккаунтов.
+
+        Returns:
+            Готовое уведомление.
+        """
+        if not payload.items:
+            text = "Непривязанные аккаунты\nСегодня непривязанных аккаунтов нет."
+        else:
+            lines = ["Непривязанные аккаунты"]
+            for index, item in enumerate(payload.items, start=1):
+                lines.append(
+                    f"{index}. {_required_text(item.player_name, field_name='player_name')} "
+                    f"({_required_text(item.player_tag, field_name='player_tag')}) — "
+                    f"с {_required_text(item.first_seen_text, field_name='first_seen_text')}"
+                )
+            text = _join_lines(*lines)
+
+        return RenderedNotification(
+            notification_type=NotificationType.UNLINKED_ACCOUNTS_EVENING,
+            text=text,
+            payload_summary=f"Unlinked accounts evening: {len(payload.items)} item(s)",
         )
 
     def render_api_errors_admin(self, payload: ApiErrorAdminPayload) -> RenderedNotification:
@@ -559,6 +647,9 @@ __all__ = [
     "NotificationRenderingError",
     "RaidReportPayload",
     "RenderedNotification",
+    "UnlinkedAccountNotificationItem",
+    "UnlinkedAccountsEveningPayload",
+    "WarEndedPayload",
     "WarPreparationStartedPayload",
     "WarReminderPayload",
     "WarStartedPayload",

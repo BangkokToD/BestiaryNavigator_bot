@@ -18,6 +18,8 @@ VALID_SETTINGS = {
     "WEB_ADMIN_COOKIE_NAME": "bn_admin_session",
     "SYNC_DEFAULT_INTERVAL_SECONDS": 900,
     "ROLE_SNAPSHOT_MAX_AGE_MINUTES": 30,
+    "NOTIFICATION_EVENING_HOUR_UTC": 18,
+    "NOTIFICATION_DAILY_REPORT_HOUR_UTC": 9,
 }
 
 
@@ -45,6 +47,8 @@ def test_settings_accepts_valid_values() -> None:
     assert settings.clash_api_timeout_seconds == 10
     assert settings.sync_default_interval_seconds == 900
     assert settings.role_snapshot_max_age_minutes == 30
+    assert settings.notification_evening_hour_utc == 18
+    assert settings.notification_daily_report_hour_utc == 9
 
 
 def test_settings_rejects_invalid_database_url() -> None:
@@ -75,6 +79,12 @@ def test_settings_rejects_non_positive_clash_api_timeout() -> None:
     """Проверяет, что timeout Clash API должен быть положительным."""
     with pytest.raises(ValidationError):
         make_settings(CLASH_API_TIMEOUT_SECONDS=0)
+
+
+def test_settings_rejects_invalid_notification_hour() -> None:
+    """Проверяет диапазон notification hour."""
+    with pytest.raises(ValidationError):
+        make_settings(NOTIFICATION_EVENING_HOUR_UTC=24)
 
 
 def test_settings_redacts_secret_values_in_repr() -> None:

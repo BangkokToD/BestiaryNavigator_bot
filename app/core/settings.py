@@ -50,6 +50,8 @@ class Settings(BaseSettings):
         web_admin_cookie_name: Имя admin-cookie в веб-интерфейсе.
         sync_default_interval_seconds: Базовый интервал синхронизации worker.
         role_snapshot_max_age_minutes: Максимальный возраст snapshot ролей для `/warn`.
+        notification_evening_hour_utc: Час UTC для вечерних списков.
+        notification_daily_report_hour_utc: Час UTC для ежедневного отчёта.
     """
 
     model_config = SettingsConfigDict(
@@ -90,6 +92,18 @@ class Settings(BaseSettings):
     role_snapshot_max_age_minutes: int = Field(
         validation_alias="ROLE_SNAPSHOT_MAX_AGE_MINUTES",
         gt=0,
+    )
+    notification_evening_hour_utc: int = Field(
+        default=18,
+        validation_alias="NOTIFICATION_EVENING_HOUR_UTC",
+        ge=0,
+        le=23,
+    )
+    notification_daily_report_hour_utc: int = Field(
+        default=9,
+        validation_alias="NOTIFICATION_DAILY_REPORT_HOUR_UTC",
+        ge=0,
+        le=23,
     )
 
     @field_validator("database_url")
