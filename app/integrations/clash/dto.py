@@ -8,6 +8,70 @@ from app.domain.tags import normalize_clan_tag, normalize_player_tag
 
 
 @dataclass(frozen=True, slots=True)
+class ClashWarAttack:
+    """Атака в обычной войне из Clash API."""
+
+    order: int | None
+    attacker_tag: str
+    defender_tag: str
+    stars: int | None
+    destruction_percentage: float | None
+    duration: int | None
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, object]) -> Self:
+        """Создаёт DTO атаки войны из JSON payload.
+
+        Args:
+            payload: JSON object атаки.
+
+        Returns:
+            DTO атаки войны.
+        """
+        return cls(
+            order=_optional_int_field(payload, "order"),
+            attacker_tag=normalize_player_tag(_required_str_field(payload, "attackerTag")),
+            defender_tag=normalize_player_tag(_required_str_field(payload, "defenderTag")),
+            stars=_optional_int_field(payload, "stars"),
+            destruction_percentage=_optional_float_field(payload, "destructionPercentage"),
+            duration=_optional_int_field(payload, "duration"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ClashWarMember:
+    """Участник обычной войны из Clash API."""
+
+    player_tag: str
+    name: str
+    town_hall_level: int | None
+    map_position: int | None
+    attacks: tuple[ClashWarAttack, ...]
+
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, object]) -> Self:
+        """Создаёт DTO участника войны из JSON payload.
+
+        Args:
+            payload: JSON object участника войны.
+
+        Returns:
+            DTO участника войны.
+        """
+        town_hall_level = _optional_int_field(payload, "townHallLevel")
+        if town_hall_level is None:
+            town_hall_level = _optional_int_field(payload, "townhallLevel")
+
+        return cls(
+            player_tag=normalize_player_tag(_required_str_field(payload, "tag")),
+            name=_required_str_field(payload, "name"),
+            town_hall_level=town_hall_level,
+            map_position=_optional_int_field(payload, "mapPosition"),
+            attacks=_extract_war_attacks(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ClashWarSideSummary:
     """Краткая сводка стороны обычной войны."""
 
@@ -16,6 +80,7 @@ class ClashWarSideSummary:
     stars: int | None
     destruction_percentage: float | None
     attacks: int | None
+    members: tuple[ClashWarMember, ...] = ()
 
     @classmethod
     def from_payload(cls, payload: Mapping[str, object]) -> Self:
@@ -26,6 +91,7 @@ class ClashWarSideSummary:
             stars=_optional_int_field(payload, "stars"),
             destruction_percentage=_optional_float_field(payload, "destructionPercentage"),
             attacks=_optional_int_field(payload, "attacks"),
+            members=_extract_war_members(payload),
         )
 
 
@@ -433,6 +499,32 @@ def _optional_war_side(
     return ClashWarSideSummary.from_payload(side_payload)
 
 
+def _extract_war_members(payload: Mapping[str, object]) -> tuple[ClashWarMember, ...]:
+    """Извлекает участников обычной войны."""
+    members: list[ClashWarMember] = []
+
+    for item in _optional_list_field(payload, "members"):
+        if not isinstance(item, Mapping):
+            raise ValueError("Clash API response поле members должно содержать объекты.")
+
+        members.append(ClashWarMember.from_payload(cast(Mapping[str, object], item)))
+
+    return tuple(members)
+
+
+def _extract_war_attacks(payload: Mapping[str, object]) -> tuple[ClashWarAttack, ...]:
+    """Извлекает атаки участника обычной войны."""
+    attacks: list[ClashWarAttack] = []
+
+    for item in _optional_list_field(payload, "attacks"):
+        if not isinstance(item, Mapping):
+            raise ValueError("Clash API response поле attacks должно содержать объекты.")
+
+        attacks.append(ClashWarAttack.from_payload(cast(Mapping[str, object], item)))
+
+    return tuple(attacks)
+
+
 def _extract_clan_tags(payload: Mapping[str, object]) -> tuple[str, ...]:
     """Извлекает теги кланов из CWL payload."""
     clan_tags: list[str] = []
@@ -503,7 +595,9 @@ __all__ = [
     "ClashCwlLeagueGroup",
     "ClashCwlWar",
     "ClashRaidMember",
+    "ClashWarAttack",
     "ClashWarLogEntry",
+    "ClashWarMember",
     "ClashWarSideSummary",
     "VerifyPlayerTokenResult",
 ]
