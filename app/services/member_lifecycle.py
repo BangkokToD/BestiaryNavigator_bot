@@ -7,9 +7,14 @@ from typing import Protocol
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Clan, ClanMemberSnapshot, PlayerAccount
+from app.db.models import Clan, ClanMemberSnapshot, PlayerAccount, PlayerEvent
 from app.domain import normalize_player_tag
 from app.integrations.clash import ClashClanMember
+
+_MEMBER_JOINED_EVENT_TYPE = "clan_member_joined"
+_MEMBER_LEFT_EVENT_TYPE = "clan_member_left"
+_MEMBER_MOVED_EVENT_TYPE = "clan_member_moved"
+_MEMBER_RENAMED_EVENT_TYPE = "clan_member_renamed"
 
 
 class MemberLifecycleError(RuntimeError):
@@ -83,6 +88,13 @@ class MemberLifecycleRepository(Protocol):
 
         Returns:
             `PlayerAccount` или `None`.
+        """
+
+    def add_player_event(self, player_event: PlayerEvent) -> None:
+        """Добавляет событие игрока в unit of work.
+
+        Args:
+            player_event: Новая модель события.
         """
 
     def add_member_snapshot(self, snapshot: ClanMemberSnapshot) -> None:
@@ -193,6 +205,14 @@ class SqlAlchemyMemberLifecycleRepository:
         )
         return result.scalar_one_or_none()
 
+    def add_player_event(self, player_event: PlayerEvent) -> None:
+        """Добавляет событие игрока в текущую session.
+
+        Args:
+            player_event: Новая модель события.
+        """
+        self._session.add(player_event)
+
     def add_member_snapshot(self, snapshot: ClanMemberSnapshot) -> None:
         """Добавляет snapshot участника в текущую session.
 
@@ -267,18 +287,40 @@ class MemberLifecycleService:
         for snapshot in current_snapshots:
             if snapshot.player_tag not in incoming_tags:
                 _mark_snapshot_not_current(snapshot, observed_at=observed_at)
+                account = await self._repository.get_player_account_by_tag(snapshot.player_tag)
+                self._repository.add_player_event(
+                    _build_member_left_event(
+                        clan=clan,
+                        snapshot=snapshot,
+                        account=account,
+                        observed_at=observed_at,
+                    )
+                )
                 left_count += 1
 
         for player_tag, member in incoming_members.items():
-            moved_count += await self._repository.close_current_snapshots_in_other_clans(
-                player_tag=player_tag,
-                clan_id=clan_id,
-                observed_at=observed_at,
+            account = await self._repository.get_player_account_by_tag(player_tag)
+            moved_from_other_clans_count = (
+                await self._repository.close_current_snapshots_in_other_clans(
+                    player_tag=player_tag,
+                    clan_id=clan_id,
+                    observed_at=observed_at,
+                )
             )
+            moved_count += moved_from_other_clans_count
+            if moved_from_other_clans_count:
+                self._repository.add_player_event(
+                    _build_member_moved_event(
+                        clan=clan,
+                        member=member,
+                        account=account,
+                        observed_at=observed_at,
+                    )
+                )
 
             snapshot = await self._repository.get_current_by_clan_and_player_tag(
-                clan_id=clan_id,
                 player_tag=player_tag,
+                clan_id=clan_id,
             )
             if snapshot is None:
                 snapshot = _build_member_snapshot(
@@ -287,12 +329,30 @@ class MemberLifecycleService:
                     observed_at=observed_at,
                 )
                 self._repository.add_member_snapshot(snapshot)
+                self._repository.add_player_event(
+                    _build_member_joined_event(
+                        clan=clan,
+                        member=member,
+                        account=account,
+                        observed_at=observed_at,
+                    )
+                )
                 created_count += 1
             else:
+                previous_name = snapshot.name
                 _apply_member_snapshot_update(snapshot, member=member, observed_at=observed_at)
+                if previous_name != member.name:
+                    self._repository.add_player_event(
+                        _build_member_renamed_event(
+                            clan=clan,
+                            member=member,
+                            previous_name=previous_name,
+                            account=account,
+                            observed_at=observed_at,
+                        )
+                    )
                 updated_count += 1
 
-            account = await self._repository.get_player_account_by_tag(player_tag)
             if account is not None:
                 account.last_seen_clan_id = clan_id
                 account.last_seen_clan = clan
@@ -401,6 +461,191 @@ def _mark_snapshot_not_current(snapshot: ClanMemberSnapshot, *, observed_at: dat
     snapshot.is_current = False
     snapshot.last_seen_at = observed_at
     snapshot.snapshot_at = observed_at
+
+
+def _build_member_joined_event(
+    *,
+    clan: Clan,
+    member: ClashClanMember,
+    account: PlayerAccount | None,
+    observed_at: datetime,
+) -> PlayerEvent:
+    """Создаёт событие появления игрока в клане.
+
+    Args:
+        clan: Клан, в котором замечен игрок.
+        member: Участник из Clash API.
+        account: Подтверждённый аккаунт игрока, если он есть.
+        observed_at: Время наблюдения состава.
+
+    Returns:
+        Модель события игрока.
+    """
+    player_tag = normalize_player_tag(member.player_tag)
+    return PlayerEvent(
+        telegram_user_id=_account_telegram_user_id(account),
+        player_tag=player_tag,
+        event_type=_MEMBER_JOINED_EVENT_TYPE,
+        title="Игрок появился в клане",
+        description=f"Игрок {member.name} появился в клане {clan.name}.",
+        metadata_json=_build_member_event_metadata(
+            clan=clan,
+            player_tag=player_tag,
+            player_name=member.name,
+        ),
+        created_at=observed_at,
+    )
+
+
+def _build_member_left_event(
+    *,
+    clan: Clan,
+    snapshot: ClanMemberSnapshot,
+    account: PlayerAccount | None,
+    observed_at: datetime,
+) -> PlayerEvent:
+    """Создаёт событие ухода игрока из клана.
+
+    Args:
+        clan: Клан, из которого пропал игрок.
+        snapshot: Последний current snapshot игрока.
+        account: Подтверждённый аккаунт игрока, если он есть.
+        observed_at: Время наблюдения ухода.
+
+    Returns:
+        Модель события игрока.
+    """
+    player_tag = normalize_player_tag(snapshot.player_tag)
+    return PlayerEvent(
+        telegram_user_id=_account_telegram_user_id(account),
+        player_tag=player_tag,
+        event_type=_MEMBER_LEFT_EVENT_TYPE,
+        title="Игрок вышел из клана",
+        description=f"Игрок {snapshot.name} больше не найден в составе клана {clan.name}.",
+        metadata_json=_build_member_event_metadata(
+            clan=clan,
+            player_tag=player_tag,
+            player_name=snapshot.name,
+        ),
+        created_at=observed_at,
+    )
+
+
+def _build_member_moved_event(
+    *,
+    clan: Clan,
+    member: ClashClanMember,
+    account: PlayerAccount | None,
+    observed_at: datetime,
+) -> PlayerEvent:
+    """Создаёт событие перехода игрока в другой отслеживаемый клан.
+
+    Args:
+        clan: Новый актуальный клан игрока.
+        member: Участник из Clash API.
+        account: Подтверждённый аккаунт игрока, если он есть.
+        observed_at: Время наблюдения перехода.
+
+    Returns:
+        Модель события игрока.
+    """
+    player_tag = normalize_player_tag(member.player_tag)
+    return PlayerEvent(
+        telegram_user_id=_account_telegram_user_id(account),
+        player_tag=player_tag,
+        event_type=_MEMBER_MOVED_EVENT_TYPE,
+        title="Игрок перешёл в другой клан",
+        description=f"Игрок {member.name} теперь найден в клане {clan.name}.",
+        metadata_json=_build_member_event_metadata(
+            clan=clan,
+            player_tag=player_tag,
+            player_name=member.name,
+        ),
+        created_at=observed_at,
+    )
+
+
+def _build_member_renamed_event(
+    *,
+    clan: Clan,
+    member: ClashClanMember,
+    previous_name: str,
+    account: PlayerAccount | None,
+    observed_at: datetime,
+) -> PlayerEvent:
+    """Создаёт событие смены ника игрока.
+
+    Args:
+        clan: Клан, где замечена смена ника.
+        member: Участник из Clash API с новым ником.
+        previous_name: Предыдущее имя из current snapshot.
+        account: Подтверждённый аккаунт игрока, если он есть.
+        observed_at: Время наблюдения смены ника.
+
+    Returns:
+        Модель события игрока.
+    """
+    player_tag = normalize_player_tag(member.player_tag)
+    return PlayerEvent(
+        telegram_user_id=_account_telegram_user_id(account),
+        player_tag=player_tag,
+        event_type=_MEMBER_RENAMED_EVENT_TYPE,
+        title="Игрок сменил ник",
+        description=f"Игрок {previous_name} сменил ник на {member.name}.",
+        metadata_json=_build_member_event_metadata(
+            clan=clan,
+            player_tag=player_tag,
+            player_name=member.name,
+            previous_name=previous_name,
+        ),
+        created_at=observed_at,
+    )
+
+
+def _build_member_event_metadata(
+    *,
+    clan: Clan,
+    player_tag: str,
+    player_name: str,
+    previous_name: str | None = None,
+) -> dict[str, object]:
+    """Собирает metadata для события жизненного цикла участника.
+
+    Args:
+        clan: Клан события.
+        player_tag: Тег игрока.
+        player_name: Актуальное имя игрока.
+        previous_name: Предыдущее имя игрока, если событие связано со сменой ника.
+
+    Returns:
+        JSON-совместимый словарь metadata.
+    """
+    metadata: dict[str, object] = {
+        "clan_id": _required_model_id(clan, model_name="Clan"),
+        "clan_tag": clan.tag,
+        "clan_name": clan.name,
+        "player_tag": normalize_player_tag(player_tag),
+        "player_name": player_name,
+    }
+    if previous_name is not None:
+        metadata["previous_name"] = previous_name
+
+    return metadata
+
+
+def _account_telegram_user_id(account: PlayerAccount | None) -> int | None:
+    """Возвращает TelegramUser ID подтверждённого аккаунта.
+
+    Args:
+        account: Подтверждённый аккаунт игрока или `None`.
+
+    Returns:
+        DB ID TelegramUser или `None`.
+    """
+    if account is None:
+        return None
+
+    return account.telegram_user_id
 
 
 def _required_model_id(model: object, *, model_name: str) -> int:
