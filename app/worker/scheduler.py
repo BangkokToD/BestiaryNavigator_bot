@@ -394,6 +394,7 @@ def create_default_worker_registry(*, default_interval_seconds: int) -> WorkerJo
     """
     from app.worker.jobs import (
         register_detect_kick_candidates_job,
+        register_detect_missed_cwl_attacks_job,
         register_detect_missed_war_attacks_job,
         register_detect_unlinked_accounts_job,
         register_sync_clans_job,
@@ -414,6 +415,7 @@ def create_default_worker_registry(*, default_interval_seconds: int) -> WorkerJo
     register_detect_unlinked_accounts_job(registry)
     register_detect_kick_candidates_job(registry)
     register_detect_missed_war_attacks_job(registry)
+    register_detect_missed_cwl_attacks_job(registry)
     return registry
 
 
