@@ -4,6 +4,12 @@ import asyncio
 import signal
 
 from app.core.logging import configure_logging, get_logger
+from app.core.settings import get_settings
+from app.worker.scheduler import (
+    WorkerJobRegistry,
+    WorkerScheduler,
+    create_default_worker_registry,
+)
 
 SERVICE_NAME = "worker"
 SHUTDOWN_SIGNALS = (signal.SIGINT, signal.SIGTERM)
@@ -24,17 +30,33 @@ def install_signal_handlers(stop_event: asyncio.Event) -> None:
         loop.add_signal_handler(shutdown_signal, stop_event.set)
 
 
-async def run_worker() -> None:
-    """Запускает worker-заглушку без зарегистрированных jobs."""
-    stop_event = asyncio.Event()
-    install_signal_handlers(stop_event)
+async def run_worker(
+    *,
+    registry: WorkerJobRegistry | None = None,
+    stop_event: asyncio.Event | None = None,
+) -> None:
+    """Запускает worker runtime с scheduler loop.
+
+    Args:
+        registry: Явный registry для тестов или специальных сценариев.
+            Если не передан, создаётся default registry без jobs.
+        stop_event: Явный shutdown event для тестов. Если не передан,
+            устанавливаются signal handlers runtime-процесса.
+    """
+    runtime_stop_event = stop_event if stop_event is not None else asyncio.Event()
+    if stop_event is None:
+        install_signal_handlers(runtime_stop_event)
+
+    worker_registry = registry or create_default_worker_registry(
+        default_interval_seconds=get_settings().sync_default_interval_seconds,
+    )
+    scheduler = WorkerScheduler(registry=worker_registry, logger=logger)
 
     logger.info("Worker service started")
-    logger.info("Worker job registry is empty")
-
-    await stop_event.wait()
-
-    logger.info("Worker service stopped")
+    try:
+        await scheduler.run(stop_event=runtime_stop_event)
+    finally:
+        logger.info("Worker service stopped")
 
 
 def main() -> None:
