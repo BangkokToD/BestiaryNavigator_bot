@@ -398,6 +398,7 @@ def create_default_worker_registry(*, default_interval_seconds: int) -> WorkerJo
         register_sync_cwl_job,
         register_sync_members_job,
         register_sync_player_profiles_job,
+        register_sync_raids_job,
     )
 
     registry = WorkerJobRegistry(default_interval_seconds=default_interval_seconds)
@@ -406,6 +407,7 @@ def create_default_worker_registry(*, default_interval_seconds: int) -> WorkerJo
     register_sync_player_profiles_job(registry)
     register_sync_current_wars_job(registry)
     register_sync_cwl_job(registry)
+    register_sync_raids_job(registry)
     return registry
 
 
