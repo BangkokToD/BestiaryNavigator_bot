@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.db.models import Clan, ClanMemberSnapshot, PlayerAccount
+from app.db.models import Clan, ClanMemberSnapshot, PlayerAccount, PlayerEvent
 from app.domain import ClanType
 from app.integrations.clash import ClashClanMember
 from app.services import MemberLifecycleError, MemberLifecycleService
@@ -28,6 +28,7 @@ class InMemoryMemberLifecycleRepository:
         self.snapshots = snapshots or []
         self.accounts = {account.player_tag: account for account in accounts or []}
         self.added_snapshots: list[ClanMemberSnapshot] = []
+        self.events: list[PlayerEvent] = []
         self.flush_count = 0
 
     async def list_current_by_clan(self, clan_id: int) -> list[ClanMemberSnapshot]:
@@ -81,6 +82,10 @@ class InMemoryMemberLifecycleRepository:
     async def get_player_account_by_tag(self, player_tag: str) -> PlayerAccount | None:
         """Возвращает игровой аккаунт по тегу."""
         return self.accounts.get(player_tag)
+
+    def add_player_event(self, player_event: PlayerEvent) -> None:
+        """Добавляет событие игрока в in-memory storage."""
+        self.events.append(player_event)
 
     def add_member_snapshot(self, snapshot: ClanMemberSnapshot) -> None:
         """Добавляет snapshot в in-memory storage."""
@@ -203,6 +208,13 @@ async def test_member_lifecycle_service_creates_snapshot_for_new_player() -> Non
     assert snapshot.snapshot_at is not None
     assert snapshot.is_current is True
 
+    assert len(repository.events) == 1
+    event = repository.events[0]
+    assert event.event_type == "clan_member_joined"
+    assert event.player_tag == "#2ABC"
+    assert event.title == "Игрок появился в клане"
+    assert event.metadata_json["clan_tag"] == "#MAIN"
+
 
 @pytest.mark.asyncio
 async def test_member_lifecycle_service_marks_missing_player_as_not_current() -> None:
@@ -221,6 +233,13 @@ async def test_member_lifecycle_service_marks_missing_player_as_not_current() ->
     assert result.current_count == 0
     assert snapshot.is_current is False
     assert repository.flush_count == 1
+    assert len(repository.events) == 1
+
+    event = repository.events[0]
+    assert event.event_type == "clan_member_left"
+    assert event.player_tag == "#2ABC"
+    assert event.title == "Игрок вышел из клана"
+    assert event.metadata_json["clan_tag"] == "#MAIN"
 
 
 @pytest.mark.asyncio
@@ -246,6 +265,14 @@ async def test_member_lifecycle_service_updates_current_snapshot_in_place_on_ren
     assert snapshot.snapshot_at != first_seen_at
     assert snapshot.is_current is True
     assert repository.added_snapshots == []
+    assert len(repository.events) == 1
+
+    event = repository.events[0]
+    assert event.event_type == "clan_member_renamed"
+    assert event.player_tag == "#2ABC"
+    assert event.title == "Игрок сменил ник"
+    assert event.metadata_json["previous_name"] == "Old nickname"
+    assert event.metadata_json["player_name"] == "New nickname"
 
 
 @pytest.mark.asyncio
@@ -280,6 +307,10 @@ async def test_member_lifecycle_service_closes_old_clan_snapshot_on_transition(
     assert new_snapshot.is_current is True
     assert account.last_seen_clan_id == 2
     assert account.last_seen_clan is target_clan
+    assert [event.event_type for event in repository.events] == [
+        "clan_member_moved",
+        "clan_member_joined",
+    ]
 
 
 @pytest.mark.asyncio
@@ -295,6 +326,26 @@ async def test_member_lifecycle_service_updates_player_account_last_seen_clan() 
     assert result.created_count == 1
     assert account.last_seen_clan_id == 7
     assert account.last_seen_clan is clan
+
+
+@pytest.mark.asyncio
+async def test_member_lifecycle_service_repeated_run_updates_without_duplicate() -> None:
+    """Проверяет повторный запуск без дубля current snapshot и событий входа."""
+    clan = make_clan()
+    repository = InMemoryMemberLifecycleRepository()
+    service = MemberLifecycleService(repository=repository)
+
+    first_result = await service.process_clan_members(clan=clan, members=[make_member()])
+    second_result = await service.process_clan_members(clan=clan, members=[make_member()])
+
+    assert first_result.created_count == 1
+    assert first_result.updated_count == 0
+    assert second_result.created_count == 0
+    assert second_result.updated_count == 1
+    assert len(repository.added_snapshots) == 1
+    assert repository.added_snapshots[0].is_current is True
+    assert [event.event_type for event in repository.events] == ["clan_member_joined"]
+    assert repository.flush_count == 2
 
 
 @pytest.mark.asyncio
