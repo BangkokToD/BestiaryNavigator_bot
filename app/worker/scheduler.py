@@ -1,7 +1,7 @@
 """Scheduler и registry worker jobs.
 
-Модуль содержит только инфраструктуру запуска jobs. Конкретные sync jobs
-регистрируются отдельными коммитами и не должны попадать в runtime entrypoint.
+Модуль содержит инфраструктуру запуска jobs. Конкретные worker jobs
+подключаются через default registry и не должны попадать в runtime entrypoint.
 """
 
 import asyncio
@@ -380,18 +380,23 @@ class WorkerScheduler:
 
 
 def create_default_worker_registry(*, default_interval_seconds: int) -> WorkerJobRegistry:
-    """Создаёт default registry worker jobs.
+    """Создаёт default registry worker jobs для runtime-процесса.
 
-    Commit 39 намеренно оставляет registry пустым. Конкретные sync jobs будут
-    добавляться отдельными коммитами PR-09.
+    Imports worker jobs выполняются внутри функции, чтобы scheduler оставался
+    базовой инфраструктурой и не создавал циклические импорты при загрузке
+    job-модулей.
 
     Args:
         default_interval_seconds: Default interval из runtime settings.
 
     Returns:
-        Пустой registry с настроенным default interval.
+        Registry с jobs, доступными текущему worker runtime.
     """
-    return WorkerJobRegistry(default_interval_seconds=default_interval_seconds)
+    from app.worker.jobs import register_sync_clans_job
+
+    registry = WorkerJobRegistry(default_interval_seconds=default_interval_seconds)
+    register_sync_clans_job(registry)
+    return registry
 
 
 async def _sleep_or_stop(stop_event: asyncio.Event, *, delay_seconds: int) -> bool:
