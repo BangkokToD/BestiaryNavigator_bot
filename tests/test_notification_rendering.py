@@ -13,6 +13,9 @@ from app.services import (
     NotificationRenderingError,
     RaidReportPayload,
     RenderedNotification,
+    UnlinkedAccountNotificationItem,
+    UnlinkedAccountsEveningPayload,
+    WarEndedPayload,
     WarnNotificationPayload,
     WarPreparationStartedPayload,
     WarReminderPayload,
@@ -138,6 +141,16 @@ def test_notification_renderer_renders_remaining_contracts_without_telegram_api(
             unused_attacks_count=4,
         )
     )
+    ended = renderer.render_war_ended(
+        WarEndedPayload(
+            clan_name="Bestiary",
+            opponent_name="Enemy",
+            our_stars=30,
+            opponent_stars=28,
+            our_destruction=99.5,
+            opponent_destruction=98.25,
+        )
+    )
     raid = renderer.render_raid_report(
         RaidReportPayload(
             clan_name="Bestiary",
@@ -177,13 +190,27 @@ def test_notification_renderer_renders_remaining_contracts_without_telegram_api(
         )
     )
 
+    unlinked = renderer.render_unlinked_accounts_evening(
+        UnlinkedAccountsEveningPayload(
+            items=[
+                UnlinkedAccountNotificationItem(
+                    player_name="NoTelegram",
+                    player_tag="#2ABC",
+                    first_seen_text="2026-05-20 10:00 UTC",
+                )
+            ]
+        )
+    )
+
     assert preparation.notification_type == NotificationType.WAR_PREPARATION_STARTED
     assert reminder.notification_type == NotificationType.WAR_3H_LEFT
+    assert ended.notification_type == NotificationType.WAR_ENDED
     assert raid.notification_type == NotificationType.RAID_12H_REPORT
     assert cancelled is not None
     assert cancelled.notification_type == NotificationType.WARN_CANCELLED
     assert api_errors.notification_type == NotificationType.API_ERRORS_ADMIN
     assert daily.notification_type == NotificationType.DAILY_ADMIN_REPORT
+    assert unlinked.notification_type == NotificationType.UNLINKED_ACCOUNTS_EVENING
 
 
 def test_notification_renderer_rejects_invalid_war_reminder_type() -> None:
