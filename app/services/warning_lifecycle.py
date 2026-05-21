@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
 
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import TelegramUser, Warning
-from app.domain import WarningStatus
+from app.db.models import CwlSeason, TelegramUser, Warning
+from app.domain import WarningSource, WarningStatus
 
 
 class WarningLifecycleError(RuntimeError):
@@ -48,14 +48,22 @@ class WarningLifecycleRepository(Protocol):
             Warn или `None`.
         """
 
-    async def list_active_expirable_warnings(self, *, current_cwl_season_key: str) -> list[Warning]:
+    async def list_active_expirable_warnings(
+        self,
+        *,
+        clan_id: int,
+        current_cwl_season_key: str,
+        current_cwl_season_started_at: datetime,
+    ) -> list[Warning]:
         """Возвращает active warn, которые должны истечь.
 
         Args:
+            clan_id: DB ID клана, внутри которого истекают warn.
             current_cwl_season_key: Обнаруженный CWL season key.
+            current_cwl_season_started_at: Время обнаружения текущего CWL season.
 
         Returns:
-            Список active warn, созданных в другом season или без season.
+            Список active system impactful warn, которые должны истечь.
         """
 
     async def flush(self) -> None:
@@ -85,21 +93,38 @@ class SqlAlchemyWarningLifecycleRepository:
         result = await self._session.execute(select(Warning).where(Warning.id == warning_id))
         return result.scalar_one_or_none()
 
-    async def list_active_expirable_warnings(self, *, current_cwl_season_key: str) -> list[Warning]:
+    async def list_active_expirable_warnings(
+        self,
+        *,
+        clan_id: int,
+        current_cwl_season_key: str,
+        current_cwl_season_started_at: datetime,
+    ) -> list[Warning]:
         """Возвращает active warn, которые должны истечь.
 
         Args:
+            clan_id: DB ID клана.
             current_cwl_season_key: Обнаруженный CWL season key.
+            current_cwl_season_started_at: Время обнаружения текущего CWL season.
 
         Returns:
-            Список active warn, созданных в другом season или без season.
+            Список active system impactful warn, которые должны истечь.
         """
         result = await self._session.execute(
             select(Warning).where(
                 Warning.status == WarningStatus.ACTIVE.value,
+                Warning.source == WarningSource.SYSTEM.value,
+                Warning.is_impactful.is_(True),
+                Warning.clan_id == clan_id,
                 or_(
-                    Warning.created_cwl_season_key.is_(None),
-                    Warning.created_cwl_season_key != current_cwl_season_key,
+                    and_(
+                        Warning.created_cwl_season_key.is_not(None),
+                        Warning.created_cwl_season_key != current_cwl_season_key,
+                    ),
+                    and_(
+                        Warning.created_cwl_season_key.is_(None),
+                        Warning.created_at < current_cwl_season_started_at,
+                    ),
                 ),
             )
         )
@@ -185,34 +210,49 @@ class WarningLifecycleService:
     async def expire_warnings_by_cwl_season(
         self,
         *,
-        current_cwl_season_key: str,
+        current_cwl_season: CwlSeason,
+        expired_at: datetime | None = None,
     ) -> WarningExpirationResult:
         """Переводит старые active warn в expired при новом CWL season.
 
-        Active warn без `created_cwl_season_key` тоже истекают при первом
-        обнаруженном season.
+        Истекают только active system impactful warn внутри того же клана.
+        Warn без `created_cwl_season_key` истекает только если сезон был
+        обнаружен после создания warn.
 
         Args:
-            current_cwl_season_key: Текущий обнаруженный CWL season key.
+            current_cwl_season: Последний обнаруженный CWL season клана.
+            expired_at: Явное время истечения для тестов.
 
         Returns:
             Результат истечения warn.
         """
+        if current_cwl_season.clan_id <= 0:
+            raise WarningLifecycleError("CwlSeason.clan_id должен быть положительным числом.")
+
         normalized_season_key = _normalize_required_text(
-            current_cwl_season_key,
-            field_name="current_cwl_season_key",
+            current_cwl_season.season,
+            field_name="current_cwl_season.season",
+        )
+        current_cwl_season_started_at = _require_aware_datetime(
+            current_cwl_season.started_at,
+            field_name="current_cwl_season.started_at",
         )
         warnings = await self._repository.list_active_expirable_warnings(
+            clan_id=current_cwl_season.clan_id,
             current_cwl_season_key=normalized_season_key,
+            current_cwl_season_started_at=current_cwl_season_started_at,
         )
 
         if not warnings:
             return WarningExpirationResult(expired_warnings=[], expired_count=0)
 
-        expired_at = _utc_now()
+        normalized_expired_at = _require_aware_datetime(
+            expired_at or _utc_now(),
+            field_name="expired_at",
+        )
         for warning in warnings:
             warning.status = WarningStatus.EXPIRED.value
-            warning.expired_at = expired_at
+            warning.expired_at = normalized_expired_at
 
         await self._repository.flush()
 
@@ -283,6 +323,22 @@ def _normalize_required_text(value: str, *, field_name: str) -> str:
         raise WarningLifecycleError(f"{field_name} не может быть пустым.")
 
     return normalized
+
+
+def _require_aware_datetime(value: datetime, *, field_name: str) -> datetime:
+    """Проверяет timezone-aware datetime.
+
+    Args:
+        value: Значение datetime.
+        field_name: Имя поля для текста ошибки.
+
+    Returns:
+        Проверенное значение datetime.
+    """
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise WarningLifecycleError(f"{field_name} должен быть timezone-aware datetime.")
+
+    return value
 
 
 def _required_model_id(model: object, *, model_name: str) -> int:
