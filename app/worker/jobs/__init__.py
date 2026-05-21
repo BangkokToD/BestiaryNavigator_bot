@@ -1,5 +1,17 @@
 """Worker jobs приложения."""
 
+from app.worker.jobs.detect_kick_candidates import (
+    DETECT_KICK_CANDIDATES_JOB_NAME,
+    DetectKickCandidatesJob,
+    DetectKickCandidatesJobResult,
+    DetectKickCandidatesRepository,
+    ImpactfulWarningsCandidate,
+    KickCandidateCreator,
+    LinkedAccountPresence,
+    SqlAlchemyDetectKickCandidatesRepository,
+    TelegramUserAccountPresence,
+    register_detect_kick_candidates_job,
+)
 from app.worker.jobs.detect_unlinked_accounts import (
     DETECT_UNLINKED_ACCOUNTS_JOB_NAME,
     DetectUnlinkedAccountsJob,
@@ -71,6 +83,7 @@ from app.worker.jobs.sync_raids import (
 )
 
 __all__ = [
+    "DETECT_KICK_CANDIDATES_JOB_NAME",
     "DETECT_UNLINKED_ACCOUNTS_JOB_NAME",
     "SYNC_CLANS_JOB_NAME",
     "SYNC_CURRENT_WARS_JOB_NAME",
@@ -85,12 +98,19 @@ __all__ = [
     "ClashPlayerProfileProvider",
     "ClashRaidSeasonsProvider",
     "CwlWarData",
+    "DetectKickCandidatesJob",
+    "DetectKickCandidatesJobResult",
+    "DetectKickCandidatesRepository",
     "DetectUnlinkedAccountsJob",
     "DetectUnlinkedAccountsJobResult",
     "DetectUnlinkedAccountsRepository",
+    "ImpactfulWarningsCandidate",
+    "KickCandidateCreator",
+    "LinkedAccountPresence",
     "MemberLifecycleProcessor",
     "PlayerProfileData",
     "RaidSeasonData",
+    "SqlAlchemyDetectKickCandidatesRepository",
     "SqlAlchemyDetectUnlinkedAccountsRepository",
     "SqlAlchemySyncClansRepository",
     "SqlAlchemySyncCurrentWarsRepository",
@@ -116,9 +136,11 @@ __all__ = [
     "SyncRaidsJob",
     "SyncRaidsJobResult",
     "SyncRaidsRepository",
+    "TelegramUserAccountPresence",
     "UnlinkedAccountCandidate",
     "UnlinkedAccountCandidateCreator",
     "WarSnapshotData",
+    "register_detect_kick_candidates_job",
     "register_detect_unlinked_accounts_job",
     "register_sync_clans_job",
     "register_sync_current_wars_job",
