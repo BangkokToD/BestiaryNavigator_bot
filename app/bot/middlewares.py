@@ -11,7 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.settings import Settings
 from app.db.models import TelegramUser
 from app.integrations.clash import ClashApiClient
-from app.services import AccountLinkingService, TelegramUserService
+from app.services import (
+    AccountLinkingService,
+    TelegramUserService,
+    WarningTargetResolverService,
+)
 
 
 class TelegramUserUpsertService(Protocol):
@@ -76,6 +80,24 @@ class AccountLinkingServiceFactory(Protocol):
         """
 
 
+class WarningTargetResolverServiceFactory(Protocol):
+    """Contract фабрики сервиса поиска цели warn."""
+
+    def __call__(
+        self,
+        *,
+        session: AsyncSession,
+    ) -> object:
+        """Создаёт сервис поиска цели warn.
+
+        Args:
+            session: Async SQLAlchemy session.
+
+        Returns:
+            Сервис поиска цели warn.
+        """
+
+
 class BotSessionFactory(Protocol):
     """Contract фабрики DB-session для bot middleware."""
 
@@ -106,6 +128,7 @@ class TelegramUserMiddleware(BaseMiddleware):
         session_factory: BotSessionFactory,
         telegram_user_service_factory: TelegramUserServiceFactory | None = None,
         account_linking_service_factory: AccountLinkingServiceFactory | None = None,
+        warning_target_resolver_service_factory: WarningTargetResolverServiceFactory | None = None,
     ) -> None:
         """Инициализирует middleware.
 
@@ -114,6 +137,7 @@ class TelegramUserMiddleware(BaseMiddleware):
             session_factory: Фабрика DB-session.
             telegram_user_service_factory: Явная фабрика сервиса для тестов.
             account_linking_service_factory: Явная фабрика сервиса привязки для тестов.
+            warning_target_resolver_service_factory: Явная фабрика resolver-а warn.
         """
         self._settings = settings
         self._session_factory = session_factory
@@ -122,6 +146,9 @@ class TelegramUserMiddleware(BaseMiddleware):
         )
         self._account_linking_service_factory = (
             account_linking_service_factory or _default_account_linking_service_factory
+        )
+        self._warning_target_resolver_service_factory = (
+            warning_target_resolver_service_factory or _default_warning_target_resolver_factory
         )
 
     async def __call__(
@@ -155,10 +182,14 @@ class TelegramUserMiddleware(BaseMiddleware):
                 session=session,
                 clash_client=clash_client,
             )
+            warning_target_resolver = self._warning_target_resolver_service_factory(
+                session=session,
+            )
             data["db_session"] = session
             data["settings"] = self._settings
             data["telegram_user_service"] = telegram_user_service
             data["account_linking_service"] = account_linking_service
+            data["warning_target_resolver"] = warning_target_resolver
             data["telegram_user"] = await self._upsert_user_from_event(
                 event=event,
                 telegram_user_service=telegram_user_service,
@@ -231,6 +262,18 @@ def _default_account_linking_service_factory(
         Сервис привязки игровых аккаунтов.
     """
     return AccountLinkingService.from_session(session=session, clash_client=clash_client)
+
+
+def _default_warning_target_resolver_factory(*, session: AsyncSession) -> object:
+    """Создаёт production WarningTargetResolverService.
+
+    Args:
+        session: Async SQLAlchemy session.
+
+    Returns:
+        Сервис поиска цели warn.
+    """
+    return WarningTargetResolverService.from_session(session=session)
 
 
 def _extract_from_user(event: object) -> object | None:
@@ -317,4 +360,5 @@ __all__ = [
     "TelegramUserMiddleware",
     "TelegramUserServiceFactory",
     "TelegramUserUpsertService",
+    "WarningTargetResolverServiceFactory",
 ]

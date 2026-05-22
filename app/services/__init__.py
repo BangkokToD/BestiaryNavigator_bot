@@ -109,6 +109,15 @@ from app.services.telegram_users import (
     TelegramUserRepository,
     TelegramUserService,
 )
+from app.services.warn_targets import (
+    SqlAlchemyWarningTargetResolverRepository,
+    WarningTargetAccount,
+    WarningTargetCandidate,
+    WarningTargetResolution,
+    WarningTargetResolutionKind,
+    WarningTargetResolverRepository,
+    WarningTargetResolverService,
+)
 from app.services.warning_creation import (
     SqlAlchemyWarningRepository,
     WarningAffectedAccount,
@@ -202,6 +211,7 @@ __all__ = [
     "SqlAlchemyTelegramUserRepository",
     "SqlAlchemyWarningLifecycleRepository",
     "SqlAlchemyWarningRepository",
+    "SqlAlchemyWarningTargetResolverRepository",
     "TelegramNotificationSender",
     "TelegramNotificationSenderError",
     "TelegramSendResult",
@@ -225,5 +235,11 @@ __all__ = [
     "WarningLifecycleRepository",
     "WarningLifecycleService",
     "WarningNotFoundError",
+    "WarningTargetAccount",
+    "WarningTargetCandidate",
+    "WarningTargetResolution",
+    "WarningTargetResolutionKind",
+    "WarningTargetResolverRepository",
+    "WarningTargetResolverService",
     "classify_api_error_policy",
 ]

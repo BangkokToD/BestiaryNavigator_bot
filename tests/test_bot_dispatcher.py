@@ -61,6 +61,7 @@ def test_create_root_router_includes_modular_routers() -> None:
         "system",
         "start",
         "account_linking",
+        "warn",
     ]
 
 
