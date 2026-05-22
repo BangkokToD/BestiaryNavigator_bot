@@ -151,6 +151,13 @@ class FakeWarningCreationService:
         """Инициализирует fake warning creation service."""
 
 
+class FakeNotificationRouteService:
+    """Fake notification route service для проверки DI wiring."""
+
+    def __init__(self) -> None:
+        """Инициализирует fake notification route service."""
+
+
 def make_settings() -> Settings:
     """Создаёт settings для middleware-тестов.
 
@@ -169,6 +176,7 @@ async def test_telegram_user_middleware_upserts_user_and_commits() -> None:
     fake_warning_target_resolver = FakeWarningTargetResolverService()
     fake_warning_permission_service = FakeWarningPermissionService()
     fake_warning_creation_service = FakeWarningCreationService()
+    fake_notification_route_service = FakeNotificationRouteService()
     middleware = TelegramUserMiddleware(
         settings=make_settings(),
         session_factory=session_factory,  # type: ignore[arg-type]
@@ -177,6 +185,7 @@ async def test_telegram_user_middleware_upserts_user_and_commits() -> None:
         warning_target_resolver_service_factory=lambda **_: fake_warning_target_resolver,
         warning_permission_service_factory=lambda **_: fake_warning_permission_service,
         warning_creation_service_factory=lambda **_: fake_warning_creation_service,
+        notification_route_service_factory=lambda **_: fake_notification_route_service,
     )
     event = FakeUpdate(
         message=FakeMessage(
@@ -209,6 +218,7 @@ async def test_telegram_user_middleware_upserts_user_and_commits() -> None:
     assert captured_data["warning_target_resolver"] is fake_warning_target_resolver
     assert captured_data["warning_permission_service"] is fake_warning_permission_service
     assert captured_data["warning_creation_service"] is fake_warning_creation_service
+    assert captured_data["notification_route_service"] is fake_notification_route_service
     assert captured_data["settings"] == make_settings()
     assert session_factory.session.commit_count == 1
     assert session_factory.session.rollback_count == 0
@@ -223,6 +233,7 @@ async def test_telegram_user_middleware_rolls_back_on_handler_error() -> None:
     fake_warning_target_resolver = FakeWarningTargetResolverService()
     fake_warning_permission_service = FakeWarningPermissionService()
     fake_warning_creation_service = FakeWarningCreationService()
+    fake_notification_route_service = FakeNotificationRouteService()
     middleware = TelegramUserMiddleware(
         settings=make_settings(),
         session_factory=session_factory,  # type: ignore[arg-type]
@@ -231,6 +242,7 @@ async def test_telegram_user_middleware_rolls_back_on_handler_error() -> None:
         warning_target_resolver_service_factory=lambda **_: fake_warning_target_resolver,
         warning_permission_service_factory=lambda **_: fake_warning_permission_service,
         warning_creation_service_factory=lambda **_: fake_warning_creation_service,
+        notification_route_service_factory=lambda **_: fake_notification_route_service,
     )
     event = FakeUpdate(
         message=FakeMessage(
@@ -268,6 +280,7 @@ async def test_telegram_user_middleware_skips_update_without_user() -> None:
     fake_warning_target_resolver = FakeWarningTargetResolverService()
     fake_warning_permission_service = FakeWarningPermissionService()
     fake_warning_creation_service = FakeWarningCreationService()
+    fake_notification_route_service = FakeNotificationRouteService()
     middleware = TelegramUserMiddleware(
         settings=make_settings(),
         session_factory=session_factory,  # type: ignore[arg-type]
@@ -276,6 +289,7 @@ async def test_telegram_user_middleware_skips_update_without_user() -> None:
         warning_target_resolver_service_factory=lambda **_: fake_warning_target_resolver,
         warning_permission_service_factory=lambda **_: fake_warning_permission_service,
         warning_creation_service_factory=lambda **_: fake_warning_creation_service,
+        notification_route_service_factory=lambda **_: fake_notification_route_service,
     )
     captured_data: dict[str, Any] = {}
 

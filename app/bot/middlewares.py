@@ -13,6 +13,7 @@ from app.db.models import TelegramUser
 from app.integrations.clash import ClashApiClient
 from app.services import (
     AccountLinkingService,
+    NotificationRouteService,
     TelegramUserService,
     WarningCreationService,
     WarningPermissionService,
@@ -140,6 +141,24 @@ class WarningCreationServiceFactory(Protocol):
         """
 
 
+class NotificationRouteServiceFactory(Protocol):
+    """Contract фабрики сервиса маршрутов уведомлений."""
+
+    def __call__(
+        self,
+        *,
+        session: AsyncSession,
+    ) -> object:
+        """Создаёт сервис маршрутов уведомлений.
+
+        Args:
+            session: Async SQLAlchemy session.
+
+        Returns:
+            Сервис маршрутов уведомлений.
+        """
+
+
 class BotSessionFactory(Protocol):
     """Contract фабрики DB-session для bot middleware."""
 
@@ -173,6 +192,7 @@ class TelegramUserMiddleware(BaseMiddleware):
         warning_target_resolver_service_factory: WarningTargetResolverServiceFactory | None = None,
         warning_permission_service_factory: WarningPermissionServiceFactory | None = None,
         warning_creation_service_factory: WarningCreationServiceFactory | None = None,
+        notification_route_service_factory: NotificationRouteServiceFactory | None = None,
     ) -> None:
         """Инициализирует middleware.
 
@@ -184,6 +204,7 @@ class TelegramUserMiddleware(BaseMiddleware):
             warning_target_resolver_service_factory: Явная фабрика resolver-а warn.
             warning_permission_service_factory: Явная фабрика permission-сервиса warn.
             warning_creation_service_factory: Явная фабрика сервиса создания warn.
+            notification_route_service_factory: Явная фабрика сервиса маршрутов.
         """
         self._settings = settings
         self._session_factory = session_factory
@@ -201,6 +222,9 @@ class TelegramUserMiddleware(BaseMiddleware):
         )
         self._warning_creation_service_factory = (
             warning_creation_service_factory or _default_warning_creation_service_factory
+        )
+        self._notification_route_service_factory = (
+            notification_route_service_factory or _default_notification_route_service_factory
         )
 
     async def __call__(
@@ -245,6 +269,9 @@ class TelegramUserMiddleware(BaseMiddleware):
             warning_creation_service = self._warning_creation_service_factory(
                 session=session,
             )
+            notification_route_service = self._notification_route_service_factory(
+                session=session,
+            )
             data["db_session"] = session
             data["settings"] = self._settings
             data["telegram_user_service"] = telegram_user_service
@@ -252,6 +279,7 @@ class TelegramUserMiddleware(BaseMiddleware):
             data["warning_target_resolver"] = warning_target_resolver
             data["warning_permission_service"] = warning_permission_service
             data["warning_creation_service"] = warning_creation_service
+            data["notification_route_service"] = notification_route_service
             data["telegram_user"] = await self._upsert_user_from_event(
                 event=event,
                 telegram_user_service=telegram_user_service,
@@ -373,6 +401,18 @@ def _default_warning_creation_service_factory(*, session: AsyncSession) -> objec
     return WarningCreationService.from_session(session=session)
 
 
+def _default_notification_route_service_factory(*, session: AsyncSession) -> object:
+    """Создаёт production NotificationRouteService.
+
+    Args:
+        session: Async SQLAlchemy session.
+
+    Returns:
+        Сервис маршрутов уведомлений.
+    """
+    return NotificationRouteService.from_session(session=session)
+
+
 def _extract_from_user(event: object) -> object | None:
     """Достаёт `from_user` из aiogram event/update.
 
@@ -454,6 +494,7 @@ __all__ = [
     "AccountLinkingServiceFactory",
     "BotHandler",
     "BotSessionFactory",
+    "NotificationRouteServiceFactory",
     "TelegramUserMiddleware",
     "TelegramUserServiceFactory",
     "TelegramUserUpsertService",
