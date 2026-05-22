@@ -2,6 +2,7 @@
 
 from aiogram import Router
 
+from app.bot.routers.start import create_start_router
 from app.bot.routers.system import create_system_router
 
 
@@ -13,6 +14,7 @@ def create_root_router() -> Router:
     """
     router = Router(name="bot")
     router.include_router(create_system_router())
+    router.include_router(create_start_router())
 
     return router
 
