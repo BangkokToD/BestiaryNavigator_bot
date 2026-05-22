@@ -4,6 +4,7 @@ from contextlib import AbstractAsyncContextManager
 from typing import Protocol
 
 from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.memory import MemoryStorage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.errors import log_handler_error
@@ -55,6 +56,7 @@ def create_dispatcher(
         Настроенный dispatcher с routers, middleware и lifecycle hooks.
     """
     dispatcher = Dispatcher()
+    dispatcher = Dispatcher(storage=MemoryStorage())
     resolved_session_factory = session_factory or get_session_factory()
 
     dispatcher.update.outer_middleware(

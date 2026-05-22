@@ -57,7 +57,11 @@ def test_create_root_router_includes_modular_routers() -> None:
 
     assert isinstance(router, Router)
     assert router.name == "bot"
-    assert [sub_router.name for sub_router in router.sub_routers] == ["system", "start"]
+    assert [sub_router.name for sub_router in router.sub_routers] == [
+        "system",
+        "start",
+        "account_linking",
+    ]
 
 
 def test_create_dispatcher_wires_root_router_and_middleware() -> None:

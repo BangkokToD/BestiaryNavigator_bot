@@ -10,7 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.settings import Settings
 from app.db.models import TelegramUser
-from app.services import TelegramUserService
+from app.integrations.clash import ClashApiClient
+from app.services import AccountLinkingService, TelegramUserService
 
 
 class TelegramUserUpsertService(Protocol):
@@ -55,6 +56,26 @@ class TelegramUserServiceFactory(Protocol):
         """
 
 
+class AccountLinkingServiceFactory(Protocol):
+    """Contract фабрики сервиса привязки игровых аккаунтов."""
+
+    def __call__(
+        self,
+        *,
+        session: AsyncSession,
+        clash_client: object,
+    ) -> object:
+        """Создаёт сервис привязки аккаунтов.
+
+        Args:
+            session: Async SQLAlchemy session.
+            clash_client: Clash API provider.
+
+        Returns:
+            Сервис привязки аккаунтов.
+        """
+
+
 class BotSessionFactory(Protocol):
     """Contract фабрики DB-session для bot middleware."""
 
@@ -84,6 +105,7 @@ class TelegramUserMiddleware(BaseMiddleware):
         settings: Settings,
         session_factory: BotSessionFactory,
         telegram_user_service_factory: TelegramUserServiceFactory | None = None,
+        account_linking_service_factory: AccountLinkingServiceFactory | None = None,
     ) -> None:
         """Инициализирует middleware.
 
@@ -91,11 +113,15 @@ class TelegramUserMiddleware(BaseMiddleware):
             settings: Runtime settings приложения.
             session_factory: Фабрика DB-session.
             telegram_user_service_factory: Явная фабрика сервиса для тестов.
+            account_linking_service_factory: Явная фабрика сервиса привязки для тестов.
         """
         self._settings = settings
         self._session_factory = session_factory
         self._telegram_user_service_factory = (
             telegram_user_service_factory or _default_telegram_user_service_factory
+        )
+        self._account_linking_service_factory = (
+            account_linking_service_factory or _default_account_linking_service_factory
         )
 
     async def __call__(
@@ -117,14 +143,22 @@ class TelegramUserMiddleware(BaseMiddleware):
         Raises:
             Exception: Любая ошибка handler-а после rollback.
         """
-        async with self._session_factory() as session:
+        async with (
+            self._session_factory() as session,
+            ClashApiClient.from_settings(self._settings) as clash_client,
+        ):
             telegram_user_service = self._telegram_user_service_factory(
                 session=session,
                 settings=self._settings,
             )
+            account_linking_service = self._account_linking_service_factory(
+                session=session,
+                clash_client=clash_client,
+            )
             data["db_session"] = session
             data["settings"] = self._settings
             data["telegram_user_service"] = telegram_user_service
+            data["account_linking_service"] = account_linking_service
             data["telegram_user"] = await self._upsert_user_from_event(
                 event=event,
                 telegram_user_service=telegram_user_service,
@@ -180,6 +214,23 @@ def _default_telegram_user_service_factory(
         Сервис TelegramUser.
     """
     return TelegramUserService.from_session(session=session, settings=settings)
+
+
+def _default_account_linking_service_factory(
+    *,
+    session: AsyncSession,
+    clash_client: object,
+) -> object:
+    """Создаёт production AccountLinkingService.
+
+    Args:
+        session: Async SQLAlchemy session.
+        clash_client: Clash API provider.
+
+    Returns:
+        Сервис привязки игровых аккаунтов.
+    """
+    return AccountLinkingService.from_session(session=session, clash_client=clash_client)
 
 
 def _extract_from_user(event: object) -> object | None:
@@ -260,6 +311,7 @@ def _optional_text(value: object) -> str | None:
 
 
 __all__ = [
+    "AccountLinkingServiceFactory",
     "BotHandler",
     "BotSessionFactory",
     "TelegramUserMiddleware",
