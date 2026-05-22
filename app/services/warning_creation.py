@@ -47,6 +47,13 @@ class WarningCreationResult:
 class WarningCreationRepository(Protocol):
     """Repository contract для создания warn."""
 
+    async def get_telegram_user_by_id(self, telegram_user_id: int) -> TelegramUser | None:
+        """Возвращает TelegramUser по DB ID.
+
+        Args:
+            telegram_user_id: DB ID TelegramUser.
+        """
+
     async def get_by_event_key(self, event_key: str) -> Warning | None:
         """Возвращает warn по event key.
 
@@ -78,6 +85,13 @@ class SqlAlchemyWarningRepository:
             session: Async SQLAlchemy session.
         """
         self._session = session
+
+    async def get_telegram_user_by_id(self, telegram_user_id: int) -> TelegramUser | None:
+        """Возвращает TelegramUser по DB ID."""
+        result = await self._session.execute(
+            select(TelegramUser).where(TelegramUser.id == telegram_user_id)
+        )
+        return result.scalar_one_or_none()
 
     async def get_by_event_key(self, event_key: str) -> Warning | None:
         """Возвращает warn по event key.
@@ -176,6 +190,43 @@ class WarningCreationService:
             comment=comment,
             event_key=event_key,
             created_cwl_season_key=None,
+        )
+
+    async def create_manual_warning_for_telegram_user_id(
+        self,
+        *,
+        telegram_user_id: int,
+        reason_code: WarningReasonCode | str,
+        author_telegram_user: TelegramUser | None = None,
+        affected_accounts: list[WarningAffectedAccount] | None = None,
+        comment: str | None = None,
+    ) -> WarningCreationResult:
+        """Создаёт manual warn по DB ID TelegramUser.
+
+        Метод нужен bot-слою: FSM хранит только ID цели, а handler не должен
+        напрямую создавать SQLAlchemy model или читать БД.
+
+        Args:
+            telegram_user_id: DB ID пользователя-цели.
+            reason_code: Причина manual warn.
+            author_telegram_user: Автор warn.
+            affected_accounts: Затронутые аккаунты.
+            comment: Комментарий.
+
+        Returns:
+            Результат создания manual warn.
+        """
+        target_user_id = _validate_positive_int(telegram_user_id, field_name="telegram_user_id")
+        target_user = await self._repository.get_telegram_user_by_id(target_user_id)
+        if target_user is None:
+            raise WarningCreationError(f"TelegramUser {target_user_id} не найден.")
+
+        return await self.create_manual_warning(
+            telegram_user=target_user,
+            reason_code=reason_code,
+            author_telegram_user=author_telegram_user,
+            affected_accounts=affected_accounts,
+            comment=comment,
         )
 
     async def create_system_warning(
@@ -434,6 +485,25 @@ def _optional_model_id(model: object | None, *, model_name: str) -> int | None:
         return None
 
     return _required_model_id(model, model_name=model_name)
+
+
+def _validate_positive_int(value: int, *, field_name: str) -> int:
+    """Проверяет положительный integer.
+
+    Args:
+        value: Значение.
+        field_name: Имя поля.
+
+    Returns:
+        Проверенное значение.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise WarningCreationError(f"{field_name} должен быть целым числом.")
+
+    if value <= 0:
+        raise WarningCreationError(f"{field_name} должен быть положительным числом.")
+
+    return value
 
 
 __all__ = [

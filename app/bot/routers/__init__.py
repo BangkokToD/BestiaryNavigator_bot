@@ -1,0 +1,30 @@
+"""Routers Telegram bot слоя."""
+
+from aiogram import Router
+
+from app.bot.routers.account_linking import create_account_linking_router
+from app.bot.routers.register import create_register_router
+from app.bot.routers.start import create_start_router
+from app.bot.routers.system import create_system_router
+from app.bot.routers.warn import create_warn_router
+
+
+def create_root_router() -> Router:
+    """Создаёт корневой router Telegram bot.
+
+    Returns:
+        Router, в который подключены модульные routers бота.
+    """
+    router = Router(name="bot")
+    router.include_router(create_system_router())
+    router.include_router(create_start_router())
+    router.include_router(create_account_linking_router())
+    router.include_router(create_warn_router())
+    router.include_router(create_register_router())
+
+    return router
+
+
+__all__ = [
+    "create_root_router",
+]

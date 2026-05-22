@@ -1,44 +1,37 @@
 """Runtime entrypoint Telegram bot-сервиса."""
 
 import asyncio
-import signal
 
+from app.bot.dispatcher import create_bot, create_dispatcher
 from app.core.logging import configure_logging, get_logger
+from app.core.settings import get_settings
 
 SERVICE_NAME = "bot"
-SHUTDOWN_SIGNALS = (signal.SIGINT, signal.SIGTERM)
 
 configure_logging(SERVICE_NAME)
 logger = get_logger(__name__)
 
 
-def install_signal_handlers(stop_event: asyncio.Event) -> None:
-    """Подключает обработчики завершения runtime-процесса.
-
-    Args:
-        stop_event: Event, который переводит сервис в режим завершения.
-    """
-    loop = asyncio.get_running_loop()
-
-    for shutdown_signal in SHUTDOWN_SIGNALS:
-        loop.add_signal_handler(shutdown_signal, stop_event.set)
-
-
 async def run_bot() -> None:
-    """Запускает bot-заглушку без polling/webhook."""
-    stop_event = asyncio.Event()
-    install_signal_handlers(stop_event)
+    """Запускает Telegram bot polling runtime."""
+    settings = get_settings()
+    bot = create_bot(settings=settings)
+    dispatcher = create_dispatcher(settings=settings)
 
-    logger.info("Bot service started")
-    logger.info("Bot polling and webhook are disabled in bootstrap entrypoint")
+    logger.info("Bot service starting")
 
-    await stop_event.wait()
-
-    logger.info("Bot service stopped")
+    try:
+        await dispatcher.start_polling(
+            bot,
+            allowed_updates=dispatcher.resolve_used_update_types(),
+        )
+    finally:
+        await bot.session.close()
+        logger.info("Bot service stopped")
 
 
 def main() -> None:
-    """Запускает async bot runtime."""
+    """Запускает async Telegram bot runtime."""
     asyncio.run(run_bot())
 
 
