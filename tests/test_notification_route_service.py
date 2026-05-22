@@ -76,6 +76,10 @@ class InMemoryNotificationRouteRepository:
 
         return None
 
+    async def list_all_routes(self, *, include_disabled: bool) -> tuple[NotificationRoute, ...]:
+        """Возвращает все routes."""
+        return tuple(route for route in self.routes if include_disabled or route.enabled)
+
     async def list_routes_by_clan_and_type(
         self,
         *,
@@ -268,6 +272,33 @@ async def test_notification_route_service_lists_enabled_routes_by_default() -> N
 
     assert enabled_routes == [enabled_route]
     assert all_routes == [enabled_route, disabled_route]
+
+
+@pytest.mark.asyncio
+async def test_notification_route_service_lists_all_routes_for_admin_ui() -> None:
+    """Проверяет список всех routes для admin UI."""
+    enabled_route = make_route(route_id=1, enabled=True)
+    disabled_route = make_route(route_id=2, chat_id=-100456, enabled=False)
+    repository = InMemoryNotificationRouteRepository(
+        routes=[enabled_route, disabled_route],
+    )
+    service = NotificationRouteService(repository=repository)
+
+    all_routes = await service.list_all_routes()
+    enabled_routes = await service.list_all_routes(include_disabled=False)
+
+    assert all_routes == (enabled_route, disabled_route)
+    assert enabled_routes == (enabled_route,)
+
+
+@pytest.mark.asyncio
+async def test_notification_route_service_gets_route_by_id() -> None:
+    """Проверяет public lookup route по DB ID."""
+    route = make_route(route_id=7)
+    repository = InMemoryNotificationRouteRepository(routes=[route])
+    service = NotificationRouteService(repository=repository)
+
+    assert await service.get_route_by_id(route_id=7) is route
 
 
 @pytest.mark.asyncio

@@ -5,6 +5,7 @@ from typing import Protocol
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.db.models import Clan, NotificationRoute, TelegramChat, TelegramUser
 from app.domain import (
@@ -112,6 +113,16 @@ class NotificationRouteRepository(Protocol):
             Route или `None`.
         """
 
+    async def list_all_routes(self, *, include_disabled: bool) -> tuple[NotificationRoute, ...]:
+        """Возвращает все маршруты уведомлений.
+
+        Args:
+            include_disabled: Возвращать ли disabled routes.
+
+        Returns:
+            Tuple маршрутов уведомлений.
+        """
+
     async def list_routes_by_clan_and_type(
         self,
         *,
@@ -194,9 +205,33 @@ class SqlAlchemyNotificationRouteRepository:
     async def get_route_by_id(self, route_id: int) -> NotificationRoute | None:
         """Возвращает route по DB ID."""
         result = await self._session.execute(
-            select(NotificationRoute).where(NotificationRoute.id == route_id)
+            select(NotificationRoute)
+            .options(
+                selectinload(NotificationRoute.clan),
+                selectinload(NotificationRoute.chat),
+            )
+            .where(NotificationRoute.id == route_id)
         )
         return result.scalar_one_or_none()
+
+    async def list_all_routes(self, *, include_disabled: bool) -> tuple[NotificationRoute, ...]:
+        """Возвращает все маршруты уведомлений в стабильном порядке."""
+        query = select(NotificationRoute).options(
+            selectinload(NotificationRoute.clan),
+            selectinload(NotificationRoute.chat),
+        )
+
+        if not include_disabled:
+            query = query.where(NotificationRoute.enabled.is_(True))
+
+        query = query.order_by(
+            NotificationRoute.clan_id,
+            NotificationRoute.notification_type,
+            NotificationRoute.chat_id,
+            NotificationRoute.message_thread_id,
+        )
+        result = await self._session.execute(query)
+        return tuple(result.scalars().all())
 
     async def list_routes_by_clan_and_type(
         self,
@@ -360,6 +395,35 @@ class NotificationRouteService:
             notification_type=normalized_notification_type.value,
             include_disabled=include_disabled,
         )
+
+    async def list_all_routes(
+        self,
+        *,
+        include_disabled: bool = True,
+    ) -> tuple[NotificationRoute, ...]:
+        """Возвращает все notification routes для admin UI.
+
+        Args:
+            include_disabled: Возвращать ли disabled routes.
+
+        Returns:
+            Tuple маршрутов уведомлений.
+        """
+        return await self._repository.list_all_routes(include_disabled=include_disabled)
+
+    async def get_route_by_id(self, *, route_id: int) -> NotificationRoute:
+        """Возвращает route по DB ID.
+
+        Args:
+            route_id: DB ID маршрута.
+
+        Returns:
+            Route уведомлений.
+
+        Raises:
+            NotificationRouteNotFoundError: Если route не найден.
+        """
+        return await self._get_required_route(route_id)
 
     async def disable_route(self, *, route_id: int) -> NotificationRouteStateResult:
         """Отключает route уведомлений.
