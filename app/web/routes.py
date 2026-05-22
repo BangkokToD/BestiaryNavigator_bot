@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response
 
+from app.web.context import build_template_context
 from app.web.templates import templates
 
 router = APIRouter(include_in_schema=False)
@@ -21,7 +22,8 @@ async def dashboard(request: Request) -> Response:
     return templates.TemplateResponse(
         request,
         "dashboard/index.html",
-        {
-            "page_title": "Dashboard",
-        },
+        build_template_context(
+            request,
+            page_title="Dashboard",
+        ),
     )

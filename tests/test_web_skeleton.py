@@ -22,6 +22,9 @@ def test_dashboard_returns_html_page() -> None:
     assert "Dashboard" in response.text
     assert "/static/css/app.css" in response.text
     assert 'class="bn-layout"' in response.text
+    assert 'data-bn-admin="false"' in response.text
+    assert 'data-bn-readonly="true"' in response.text
+    assert 'data-admin-only="true"' not in response.text
     assert 'class="bn-sidebar"' in response.text
     assert 'class="bn-topbar"' in response.text
     assert 'class="bn-page"' in response.text
