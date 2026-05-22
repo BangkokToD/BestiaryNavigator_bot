@@ -32,6 +32,7 @@
           <span class="bn-topbar__status">{{ web_context.role_label }}</span>
           {% if web_context.is_admin %}
             <span class="bn-topbar__status" data-admin-only="true">Админ</span>
+            <a class="bn-button bn-button--ghost" href="/auth/logout" data-admin-only="true">Выйти</a>
           {% endif %}
         </header>
 

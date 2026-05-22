@@ -3,10 +3,12 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response
 
+from app.web.auth import router as auth_router
 from app.web.context import build_template_context
 from app.web.templates import templates
 
 router = APIRouter(include_in_schema=False)
+router.include_router(auth_router)
 
 
 @router.get("/", response_class=HTMLResponse)

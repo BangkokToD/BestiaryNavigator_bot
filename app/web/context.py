@@ -9,6 +9,10 @@ from dataclasses import dataclass
 from typing import Self
 
 from fastapi import HTTPException, Request, status
+from pydantic import ValidationError
+
+from app.core.settings import get_settings
+from app.web.security import verify_admin_cookie_value
 
 _WEB_CONTEXT_STATE_KEY = "web_context"
 
@@ -192,7 +196,7 @@ def get_web_request_context(request: Request) -> WebRequestContext:
     if isinstance(existing_context, WebRequestContext):
         return existing_context
 
-    context = build_web_request_context()
+    context = _build_context_from_admin_cookie(request) or build_web_request_context()
     set_web_request_context(request, context)
     return context
 
@@ -296,6 +300,48 @@ def web_template_context_processor(request: Request) -> dict[str, object]:
     return {
         "web_context": get_web_request_context(request),
     }
+
+
+def _build_context_from_admin_cookie(request: Request) -> WebRequestContext | None:
+    """Строит admin context из подписанной admin-cookie.
+
+    Функция не делает запросов в БД. Cookie даёт только admin mode и только
+    если она подписана `WEB_SESSION_SECRET`, а Telegram ID внутри совпадает с
+    `TELEGRAM_ADMIN_ID` из settings.
+
+    Args:
+        request: FastAPI request.
+
+    Returns:
+        Admin context или `None`, если cookie отсутствует/невалидна.
+    """
+    if not request.cookies:
+        return None
+
+    try:
+        settings = get_settings()
+    except ValidationError:
+        return None
+
+    cookie_value = request.cookies.get(settings.web_admin_cookie_name)
+    if not cookie_value:
+        return None
+
+    telegram_id = verify_admin_cookie_value(
+        cookie_value,
+        secret=settings.web_session_secret,
+    )
+    if telegram_id != settings.telegram_admin_id:
+        return None
+
+    return build_web_request_context(
+        CurrentWebUser.from_telegram_identity(
+            telegram_id=telegram_id,
+            username=None,
+            display_name=None,
+            is_admin=True,
+        )
+    )
 
 
 def _normalize_optional_string(value: str | None) -> str | None:
