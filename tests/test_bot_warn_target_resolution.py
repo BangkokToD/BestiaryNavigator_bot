@@ -328,8 +328,8 @@ def test_create_warn_router_registers_handlers() -> None:
     router = create_warn_router()
 
     assert router.name == "warn"
-    assert len(router.message.handlers) == 1
-    assert len(router.callback_query.handlers) == 1
+    assert len(router.message.handlers) == 2
+    assert len(router.callback_query.handlers) == 2
 
 
 def _make_candidate(

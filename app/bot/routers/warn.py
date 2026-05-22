@@ -1,17 +1,21 @@
 """Router target resolution команды `/warn`."""
 
 import re
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from typing import Protocol
 
 from aiogram import F, Router
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from app.db.models import TelegramUser
+from app.domain import MANUAL_WARNING_REASON_CODES, WarningReasonCode
 from app.services import (
+    WarningAffectedAccount,
+    WarningCreationError,
+    WarningCreationResult,
     WarningTargetCandidate,
     WarningTargetResolution,
     WarningTargetResolutionKind,
@@ -22,12 +26,34 @@ from app.services import (
 _PLAYER_TAG_PATTERN = re.compile(r"#[A-Za-z0-9]+")
 _USERNAME_PATTERN = re.compile(r"@[A-Za-z0-9_]{3,32}")
 _WARN_TARGET_CALLBACK_PREFIX = "warn_target:"
+_WARN_REASON_CALLBACK_PREFIX = "warn_reason:"
+_OTHER_COMMENT_REQUIRED_MESSAGE = (
+    "Для причины other нужен комментарий. Отправь комментарий следующим сообщением."
+)
 
 
 class WarnFlowStates(StatesGroup):
     """FSM states ручного warn-сценария."""
 
     waiting_for_reason = State()
+    waiting_for_other_comment = State()
+
+
+@dataclass(frozen=True, slots=True)
+class _WarnReasonCallbackData:
+    """Данные callback-а выбора причины warn."""
+
+    author_telegram_user_id: int
+    reason_code: WarningReasonCode
+
+
+@dataclass(frozen=True, slots=True)
+class _PendingWarnTarget:
+    """Цель warn, сохранённая в FSM."""
+
+    telegram_user_id: int
+    label: str
+    accounts: tuple[WarningAffectedAccount, ...]
 
 
 class WarnTargetResolver(Protocol):
@@ -62,6 +88,21 @@ class WarnPermissionChecker(Protocol):
         candidate: WarningTargetCandidate,
     ) -> WarnPermissionDecision:
         """Проверяет, что цель находится в main-клане."""
+
+
+class ManualWarningCreationService(Protocol):
+    """Contract сервиса создания manual warn для bot handler-а."""
+
+    async def create_manual_warning_for_telegram_user_id(
+        self,
+        *,
+        telegram_user_id: int,
+        reason_code: WarningReasonCode | str,
+        author_telegram_user: TelegramUser | None = None,
+        affected_accounts: list[WarningAffectedAccount] | None = None,
+        comment: str | None = None,
+    ) -> WarningCreationResult:
+        """Создаёт manual warn по DB ID TelegramUser."""
 
 
 async def handle_warn_command(
@@ -104,6 +145,7 @@ async def handle_warn_command(
         message=message,
         state=state,
         resolution=resolution,
+        telegram_user=telegram_user,
         warning_permission_service=warning_permission_service,
     )
 
@@ -153,11 +195,135 @@ async def handle_warn_target_choice(
         )
         return
 
-    await _save_pending_target(state=state, candidate=candidate)
+    author_telegram_user_id = _telegram_user_db_id(telegram_user)
+    if author_telegram_user_id is None:
+        await callback_query.answer(
+            "Не удалось определить автора warn. Напиши /start и попробуй снова.",
+            show_alert=True,
+        )
+        return
+
+    await _save_pending_target(
+        state=state,
+        candidate=candidate,
+        author_telegram_user_id=author_telegram_user_id,
+    )
     await callback_query.answer("Цель выбрана.")
 
     if callback_query.message is not None:
-        await callback_query.message.answer(_format_resolved_message(candidate))
+        await callback_query.message.answer(
+            _format_resolved_message(candidate),
+            reply_markup=_build_reason_keyboard(author_telegram_user_id),
+        )
+
+
+async def handle_warn_reason_choice(
+    callback_query: CallbackQuery,
+    state: FSMContext,
+    telegram_user: TelegramUser | None,
+    warning_creation_service: ManualWarningCreationService,
+) -> None:
+    """Создаёт manual warn после inline-выбора причины.
+
+    Args:
+        callback_query: Callback query выбора reason code.
+        state: FSM context.
+        telegram_user: Пользователь, который нажал кнопку.
+        warning_creation_service: Сервис создания warning.
+    """
+    reason_data = _parse_warn_reason_callback_data(callback_query.data or "")
+    if reason_data is None:
+        await callback_query.answer("Причина warn не найдена.", show_alert=True)
+        return
+
+    state_data = await state.get_data()
+    if not _is_authorized_reason_actor(
+        telegram_user=telegram_user,
+        state_data=state_data,
+        author_telegram_user_id=reason_data.author_telegram_user_id,
+    ):
+        await callback_query.answer(
+            "Выбрать причину может только автор команды /warn.",
+            show_alert=True,
+        )
+        return
+
+    if reason_data.reason_code == WarningReasonCode.OTHER:
+        await state.update_data(warn_reason=reason_data.reason_code.value)
+        await state.set_state(WarnFlowStates.waiting_for_other_comment)
+        await callback_query.answer("Нужен комментарий.")
+        if callback_query.message is not None:
+            await callback_query.message.answer(_OTHER_COMMENT_REQUIRED_MESSAGE)
+        return
+
+    try:
+        result = await _create_manual_warning_from_state(
+            state_data=state_data,
+            reason_code=reason_data.reason_code,
+            author_telegram_user=telegram_user,
+            warning_creation_service=warning_creation_service,
+            comment=None,
+        )
+    except (ValueError, WarningCreationError):
+        await state.clear()
+        await callback_query.answer("Warn не создан.", show_alert=True)
+        return
+
+    await state.clear()
+    await callback_query.answer("Warn создан.")
+
+    if callback_query.message is not None:
+        await callback_query.message.answer(_format_warning_created_message(result))
+
+
+async def handle_warn_other_comment(
+    message: Message,
+    state: FSMContext,
+    telegram_user: TelegramUser | None,
+    warning_creation_service: ManualWarningCreationService,
+) -> None:
+    """Создаёт warn с reason `other` после обязательного комментария.
+
+    Args:
+        message: Сообщение с комментарием.
+        state: FSM context.
+        telegram_user: Автор warn.
+        warning_creation_service: Сервис создания warning.
+    """
+    state_data = await state.get_data()
+    author_telegram_user_id = _state_author_telegram_user_id(state_data)
+    if author_telegram_user_id is None or not _same_telegram_user(
+        telegram_user,
+        author_telegram_user_id,
+    ):
+        await message.answer("Комментарий может отправить только автор команды /warn.")
+        return
+
+    comment = (message.text or "").strip()
+    if not comment:
+        await message.answer("Комментарий для other обязателен. Отправь текст комментария.")
+        return
+
+    if state_data.get("warn_reason") != WarningReasonCode.OTHER.value:
+        await state.clear()
+        await message.answer("Сценарий warn устарел. Начни заново: /warn.")
+        return
+
+    try:
+        result = await _create_manual_warning_from_state(
+            state_data=state_data,
+            reason_code=WarningReasonCode.OTHER,
+            author_telegram_user=telegram_user,
+            warning_creation_service=warning_creation_service,
+            comment=comment,
+        )
+    except (ValueError, WarningCreationError):
+        await state.clear()
+        await message.answer("Warn не создан. Начни заново: /warn.")
+        return
+
+    await state.clear()
+    await message.answer(_format_warning_created_message(result))
 
 
 def create_warn_router() -> Router:
@@ -168,9 +334,17 @@ def create_warn_router() -> Router:
     """
     router = Router(name="warn")
     router.message.register(handle_warn_command, Command("warn"))
+    router.message.register(
+        handle_warn_other_comment,
+        StateFilter(WarnFlowStates.waiting_for_other_comment),
+    )
     router.callback_query.register(
         handle_warn_target_choice,
         F.data.startswith(_WARN_TARGET_CALLBACK_PREFIX),
+    )
+    router.callback_query.register(
+        handle_warn_reason_choice,
+        F.data.startswith(_WARN_REASON_CALLBACK_PREFIX),
     )
 
     return router
@@ -206,6 +380,7 @@ async def _handle_resolution(
     message: Message,
     state: FSMContext,
     resolution: WarningTargetResolution,
+    telegram_user: TelegramUser | None,
     warning_permission_service: WarnPermissionChecker,
 ) -> None:
     """Обрабатывает результат поиска цели warn.
@@ -214,6 +389,7 @@ async def _handle_resolution(
         message: Входящее сообщение.
         state: FSM context.
         resolution: Результат поиска цели.
+        telegram_user: Автор warn из middleware.
         warning_permission_service: Сервис проверки прав warn.
     """
     if resolution.kind == WarningTargetResolutionKind.NOT_FOUND:
@@ -238,14 +414,27 @@ async def _handle_resolution(
         await message.answer(_format_target_denial(target_decision))
         return
 
-    await _save_pending_target(state=state, candidate=candidate)
-    await message.answer(_format_resolved_message(candidate))
+    author_telegram_user_id = _telegram_user_db_id(telegram_user)
+    if author_telegram_user_id is None:
+        await message.answer("Не удалось определить автора warn. Напиши /start и попробуй снова.")
+        return
+
+    await _save_pending_target(
+        state=state,
+        candidate=candidate,
+        author_telegram_user_id=author_telegram_user_id,
+    )
+    await message.answer(
+        _format_resolved_message(candidate),
+        reply_markup=_build_reason_keyboard(author_telegram_user_id),
+    )
 
 
 async def _save_pending_target(
     *,
     state: FSMContext,
     candidate: WarningTargetCandidate,
+    author_telegram_user_id: int,
 ) -> None:
     """Сохраняет выбранную цель warn в FSM без создания Warning.
 
@@ -254,12 +443,13 @@ async def _save_pending_target(
         candidate: Выбранная цель.
     """
     await state.update_data(
+        warn_author_telegram_user_id=author_telegram_user_id,
         warn_target={
             "telegram_user_id": candidate.telegram_user_id,
             "telegram_id": candidate.telegram_id,
             "label": candidate.label,
             "accounts": [asdict(account) for account in candidate.accounts],
-        }
+        },
     )
     await state.set_state(WarnFlowStates.waiting_for_reason)
 
@@ -316,6 +506,40 @@ def _build_ambiguity_keyboard(
     )
 
 
+def _build_reason_keyboard(author_telegram_user_id: int) -> InlineKeyboardMarkup:
+    """Создаёт inline-кнопки выбора manual reason code.
+
+    Args:
+        author_telegram_user_id: DB ID автора warn.
+
+    Returns:
+        Inline keyboard с manual reason codes.
+    """
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=reason_code.value,
+                    callback_data=(
+                        f"{_WARN_REASON_CALLBACK_PREFIX}"
+                        f"{author_telegram_user_id}:{reason_code.value}"
+                    ),
+                )
+            ]
+            for reason_code in _manual_reason_codes()
+        ]
+    )
+
+
+def _manual_reason_codes() -> tuple[WarningReasonCode, ...]:
+    """Возвращает manual reason codes в стабильном порядке."""
+    return tuple(
+        reason_code
+        for reason_code in WarningReasonCode
+        if reason_code in MANUAL_WARNING_REASON_CODES
+    )
+
+
 def _candidate_button_text(candidate: WarningTargetCandidate) -> str:
     """Создаёт текст кнопки цели.
 
@@ -349,6 +573,26 @@ def _format_resolved_message(candidate: WarningTargetCandidate) -> str:
             f"Цель найдена: {candidate.label}.",
             f"Аккаунты: {accounts}.",
             "Теперь нужно выбрать причину warn. До выбора причины запись warn не создана.",
+        )
+    )
+
+
+def _format_warning_created_message(result: WarningCreationResult) -> str:
+    """Форматирует ответ после создания warn.
+
+    Args:
+        result: Результат создания warning.
+
+    Returns:
+        Текст ответа.
+    """
+    warning = result.warning
+    created_text = "создан" if result.created else "уже существовал"
+    return "\n".join(
+        (
+            f"Warn {created_text}.",
+            f"Причина: {warning.reason_code}.",
+            "Manual warn не влияет на автоматические решения.",
         )
     )
 
@@ -392,6 +636,169 @@ def _format_target_denial(decision: WarnPermissionDecision) -> str:
     )
 
 
+async def _create_manual_warning_from_state(
+    *,
+    state_data: dict[str, object],
+    reason_code: WarningReasonCode,
+    author_telegram_user: TelegramUser | None,
+    warning_creation_service: ManualWarningCreationService,
+    comment: str | None,
+) -> WarningCreationResult:
+    """Создаёт manual warning на основе pending FSM state.
+
+    Args:
+        state_data: FSM data.
+        reason_code: Выбранная причина warn.
+        author_telegram_user: Автор warning.
+        warning_creation_service: Сервис создания warning.
+        comment: Комментарий.
+
+    Returns:
+        Результат создания warning.
+    """
+    if author_telegram_user is None:
+        raise ValueError("Автор warn не найден.")
+
+    target = _pending_warn_target_from_state(state_data)
+    if target is None:
+        raise ValueError("Цель warn не найдена в FSM.")
+
+    return await warning_creation_service.create_manual_warning_for_telegram_user_id(
+        telegram_user_id=target.telegram_user_id,
+        reason_code=reason_code,
+        author_telegram_user=author_telegram_user,
+        affected_accounts=list(target.accounts),
+        comment=comment,
+    )
+
+
+def _pending_warn_target_from_state(
+    state_data: dict[str, object],
+) -> _PendingWarnTarget | None:
+    """Достаёт pending target из FSM data.
+
+    Args:
+        state_data: FSM data.
+
+    Returns:
+        Pending target или `None`.
+    """
+    raw_target = state_data.get("warn_target")
+    if not isinstance(raw_target, dict):
+        return None
+
+    telegram_user_id = raw_target.get("telegram_user_id")
+    label = raw_target.get("label")
+    raw_accounts = raw_target.get("accounts")
+
+    if not isinstance(telegram_user_id, int) or telegram_user_id <= 0:
+        return None
+
+    if not isinstance(label, str) or not label.strip():
+        return None
+
+    if not isinstance(raw_accounts, list):
+        return None
+
+    accounts: list[WarningAffectedAccount] = []
+    for raw_account in raw_accounts:
+        if not isinstance(raw_account, dict):
+            return None
+
+        player_tag = raw_account.get("player_tag")
+        player_name = raw_account.get("player_name")
+
+        if not isinstance(player_tag, str) or not isinstance(player_name, str):
+            return None
+
+        accounts.append(
+            WarningAffectedAccount(
+                player_tag=player_tag,
+                player_name=player_name,
+            )
+        )
+
+    return _PendingWarnTarget(
+        telegram_user_id=telegram_user_id,
+        label=label,
+        accounts=tuple(accounts),
+    )
+
+
+def _parse_warn_reason_callback_data(value: str) -> _WarnReasonCallbackData | None:
+    """Парсит callback data выбора причины warn.
+
+    Args:
+        value: Callback data.
+
+    Returns:
+        Parsed data или `None`.
+    """
+    if not value.startswith(_WARN_REASON_CALLBACK_PREFIX):
+        return None
+
+    raw_value = value.removeprefix(_WARN_REASON_CALLBACK_PREFIX)
+    try:
+        raw_author_id, raw_reason_code = raw_value.split(":", maxsplit=1)
+        author_telegram_user_id = int(raw_author_id)
+        reason_code = WarningReasonCode(raw_reason_code)
+    except (ValueError, TypeError):
+        return None
+
+    if author_telegram_user_id <= 0:
+        return None
+
+    if reason_code not in MANUAL_WARNING_REASON_CODES:
+        return None
+
+    return _WarnReasonCallbackData(
+        author_telegram_user_id=author_telegram_user_id,
+        reason_code=reason_code,
+    )
+
+
+def _is_authorized_reason_actor(
+    *,
+    telegram_user: TelegramUser | None,
+    state_data: dict[str, object],
+    author_telegram_user_id: int,
+) -> bool:
+    """Проверяет, что причину выбирает автор warn-сценария."""
+    return (
+        _same_telegram_user(telegram_user, author_telegram_user_id)
+        and _state_author_telegram_user_id(state_data) == author_telegram_user_id
+    )
+
+
+def _state_author_telegram_user_id(state_data: dict[str, object]) -> int | None:
+    """Достаёт DB ID автора warn из FSM data."""
+    value = state_data.get("warn_author_telegram_user_id")
+    if isinstance(value, int) and value > 0:
+        return value
+
+    return None
+
+
+def _same_telegram_user(
+    telegram_user: TelegramUser | None,
+    telegram_user_id: int,
+) -> bool:
+    """Проверяет совпадение TelegramUser DB ID."""
+    return _telegram_user_db_id(telegram_user) == telegram_user_id
+
+
+def _telegram_user_db_id(telegram_user: TelegramUser | None) -> int | None:
+    """Достаёт DB ID TelegramUser."""
+    if telegram_user is None:
+        return None
+
+    telegram_user_id = getattr(telegram_user, "id", None)
+    if isinstance(telegram_user_id, int) and telegram_user_id > 0:
+        return telegram_user_id
+
+    return None
+
+
 def _parse_warn_target_callback_data(value: str) -> int | None:
     """Парсит callback data выбора цели warn.
 
@@ -414,10 +821,13 @@ def _parse_warn_target_callback_data(value: str) -> int | None:
 
 
 __all__ = [
+    "ManualWarningCreationService",
     "WarnFlowStates",
     "WarnPermissionChecker",
     "WarnTargetResolver",
     "create_warn_router",
     "handle_warn_command",
+    "handle_warn_other_comment",
+    "handle_warn_reason_choice",
     "handle_warn_target_choice",
 ]
