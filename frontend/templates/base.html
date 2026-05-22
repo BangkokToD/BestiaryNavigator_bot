@@ -29,6 +29,9 @@
             <a class="bn-sidebar__link" href="/admin/settings/telegram" {% if active_nav|default("") == "admin_telegram" %}aria-current="page"{% endif %} data-admin-only="true">
               Настройки Telegram
             </a>
+            <a class="bn-sidebar__link" href="/admin/settings/api-errors" {% if active_nav|default("") == "admin_api_errors" %}aria-current="page"{% endif %} data-admin-only="true">
+              Dev API errors
+            </a>
           {% endif %}
         </nav>
       </aside>

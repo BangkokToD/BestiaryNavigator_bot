@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section
+    class="bn-section bn-admin-api-errors"
+    aria-labelledby="api-errors-title"
+    data-admin-api-errors
+  >
+    <div class="bn-section-header">
+      {{ badges.badge("Dev", variant="info") }}
+      <h1 id="api-errors-title" class="bn-page-title">Dev API errors</h1>
+      <p class="bn-page-lead">
+        Краткий и debug-режим ошибок внешних API. Debug-блоки раскрываются через
+        браузерный details/summary, без тяжёлого JS. Чувствительные строки редактируются.
+      </p>
+    </div>
+
+    {% call cards.card(title="Фильтр", eyebrow="Summary mode", class_name="bn-api-errors-filter") %}
+      <form class="bn-form bn-api-errors-filter__form" method="get" action="/admin/settings/api-errors">
+        <div class="bn-field">
+          <label class="bn-label" for="api-error-status">Статус</label>
+          <select class="bn-select" id="api-error-status" name="status">
+            <option value="">Все статусы</option>
+            {% for option in status_options %}
+              <option value="{{ option.value }}" {% if status_filter == option.value %}selected{% endif %}>
+                {{ option.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="bn-field">
+          <label class="bn-label" for="api-error-limit">Limit</label>
+          <input
+            class="bn-input"
+            id="api-error-limit"
+            name="limit"
+            type="number"
+            min="1"
+            max="200"
+            value="{{ limit }}"
+          >
+        </div>
+
+        <div class="bn-form__actions">
+          <button class="bn-button bn-button--primary" type="submit">Применить</button>
+        </div>
+      </form>
+
+      <p class="bn-card-text">Показано записей: {{ total_count }}</p>
+    {% endcall %}
+
+    {% if errors %}
+      <div class="bn-api-errors-list" aria-label="Список API errors">
+        {% for error in errors %}
+          {% call cards.card(class_name="bn-api-error-card bn-api-error-card--" ~ error.status_group) %}
+            <div class="bn-api-error-card__header">
+              <div>
+                <p class="bn-card-eyebrow">{{ error.method }} · {{ error.endpoint }}</p>
+                <h2 class="bn-api-error-card__title">{{ error.message }}</h2>
+              </div>
+              <div class="bn-api-error-card__badges">
+                {{ badges.badge(error.status_label, variant=error.status_variant) }}
+                {% if error.status_code is not none %}
+                  {{ badges.badge("HTTP " ~ error.status_code, variant="muted") }}
+                {% else %}
+                  {{ badges.badge("No HTTP status", variant="muted") }}
+                {% endif %}
+              </div>
+            </div>
+
+            <dl class="bn-api-error-card__meta">
+              <div>
+                <dt>Entity</dt>
+                <dd>
+                  {{ error.entity_type or "нет данных" }}
+                  {% if error.entity_tag %} · {{ error.entity_tag }}{% endif %}
+                </dd>
+              </div>
+              <div>
+                <dt>Worker</dt>
+                <dd>{{ error.worker_name or "нет данных" }}</dd>
+              </div>
+              <div>
+                <dt>Retry count</dt>
+                <dd>{{ error.retry_count }}</dd>
+              </div>
+              <div>
+                <dt>Created</dt>
+                <dd>{{ error.created_at_text }}</dd>
+              </div>
+              <div>
+                <dt>Status group</dt>
+                <dd>{{ error.status_group }}</dd>
+              </div>
+              <div>
+                <dt>Resolved</dt>
+                <dd>{{ error.resolved_at_text or "не закрыта" }}</dd>
+              </div>
+            </dl>
+
+            <details class="bn-api-error-debug">
+              <summary>Debug</summary>
+              <dl class="bn-api-error-debug__grid">
+                <div>
+                  <dt>Endpoint</dt>
+                  <dd><code>{{ error.endpoint }}</code></dd>
+                </div>
+                <div>
+                  <dt>Method</dt>
+                  <dd><code>{{ error.method }}</code></dd>
+                </div>
+                <div>
+                  <dt>Exception class</dt>
+                  <dd><code>{{ error.exception_class or "нет данных" }}</code></dd>
+                </div>
+                <div>
+                  <dt>Raw status</dt>
+                  <dd><code>{{ error.status }}</code></dd>
+                </div>
+              </dl>
+
+              <div class="bn-api-error-snippet">
+                <p class="bn-card-eyebrow">Response snippet</p>
+                <pre><code>{{ error.response_snippet or "нет данных" }}</code></pre>
+              </div>
+            </details>
+
+            {% if error.can_resolve and error.resolve_url %}
+              <div class="bn-api-error-card__actions">
+                <button
+                  class="bn-button bn-button--ghost"
+                  type="button"
+                  data-api-error-resolve-url="{{ error.resolve_url }}"
+                >
+                  Пометить resolved
+                </button>
+                <p class="bn-route-row__message" data-api-error-message aria-live="polite"></p>
+              </div>
+            {% endif %}
+          {% endcall %}
+        {% endfor %}
+      </div>
+    {% else %}
+      {% call empty_states.empty_state(
+        title="API errors не найдены",
+        text="По выбранному фильтру ошибок нет.",
+        eyebrow="Пусто"
+      ) %}
+      {% endcall %}
+    {% endif %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', path='/js/pages/admin_api_errors.js') }}" defer></script>
+{% endblock %}

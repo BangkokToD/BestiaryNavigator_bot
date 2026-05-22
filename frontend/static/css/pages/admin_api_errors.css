@@ -1,0 +1,137 @@
+.bn-admin-api-errors,
+.bn-api-errors-list {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.bn-api-errors-filter__form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.bn-api-error-card {
+  min-width: 0;
+}
+
+.bn-api-error-card--unresolved {
+  border-color: var(--bn-status-info-soft);
+}
+
+.bn-api-error-card--retrying {
+  border-color: var(--bn-status-warning-soft);
+}
+
+.bn-api-error-card--resolved,
+.bn-api-error-card--stale {
+  opacity: 0.78;
+}
+
+.bn-api-error-card__header {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.bn-api-error-card__title {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--bn-text-main);
+  font-size: 1.125rem;
+  line-height: 1.35;
+}
+
+.bn-api-error-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.bn-api-error-card__meta,
+.bn-api-error-debug__grid {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.bn-api-error-card__meta div,
+.bn-api-error-debug__grid div {
+  display: grid;
+  gap: 0.2rem;
+  border-top: 1px solid var(--bn-border-soft);
+  min-width: 0;
+  padding-top: 0.75rem;
+}
+
+.bn-api-error-card__meta dt,
+.bn-api-error-debug__grid dt {
+  color: var(--bn-text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bn-api-error-card__meta dd,
+.bn-api-error-debug__grid dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--bn-text-main);
+  font-weight: 700;
+}
+
+.bn-api-error-debug {
+  border: 1px solid var(--bn-border-soft);
+  border-radius: var(--bn-radius-md);
+  background: var(--bn-bg-surface-2);
+  padding: 0.75rem;
+}
+
+.bn-api-error-debug summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.bn-api-error-snippet {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.bn-api-error-snippet pre {
+  overflow-x: auto;
+  max-width: 100%;
+  border: 1px solid var(--bn-border-soft);
+  border-radius: var(--bn-radius-md);
+  background: var(--bn-bg-surface);
+  margin: 0;
+  padding: 0.75rem;
+  white-space: pre-wrap;
+}
+
+.bn-api-error-snippet code {
+  overflow-wrap: anywhere;
+  color: var(--bn-text-soft);
+}
+
+.bn-api-error-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+@media (min-width: 768px) {
+  .bn-api-errors-filter__form {
+    grid-template-columns: minmax(0, 1fr) 10rem auto;
+    align-items: end;
+  }
+
+  .bn-api-error-card__header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .bn-api-error-card__meta,
+  .bn-api-error-debug__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
