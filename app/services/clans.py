@@ -48,6 +48,13 @@ class ClanRepository(Protocol):
             Модель клана или `None`.
         """
 
+    async def list_all(self) -> tuple[Clan, ...]:
+        """Возвращает все кланы в стабильном порядке.
+
+        Returns:
+            Tuple отслеживаемых кланов.
+        """
+
     def add(self, clan: Clan) -> None:
         """Добавляет клан в unit of work.
 
@@ -81,6 +88,17 @@ class SqlAlchemyClanRepository:
         """
         result = await self._session.execute(select(Clan).where(Clan.tag == clan_tag))
         return result.scalar_one_or_none()
+
+    async def list_all(self) -> tuple[Clan, ...]:
+        """Возвращает все кланы в стабильном порядке.
+
+        Returns:
+            Tuple отслеживаемых кланов.
+        """
+        result = await self._session.execute(
+            select(Clan).order_by(Clan.is_active.desc(), Clan.name.asc(), Clan.tag.asc())
+        )
+        return tuple(result.scalars().all())
 
     def add(self, clan: Clan) -> None:
         """Добавляет клан в текущую session.
@@ -138,6 +156,32 @@ class ClanManagementService:
             repository=SqlAlchemyClanRepository(session),
             clash_client=clash_client,
         )
+
+    async def list_clans(self) -> tuple[Clan, ...]:
+        """Возвращает список отслеживаемых кланов.
+
+        Метод нужен web/admin слою как read-contract. Он не обращается к Clash
+        API и не меняет состояние БД.
+
+        Returns:
+            Tuple кланов в стабильном порядке.
+        """
+        return await self._repository.list_all()
+
+    async def check_clan(self, *, clan_tag: str) -> ClashClan:
+        """Проверяет тег клана через Clash API без сохранения в БД.
+
+        Args:
+            clan_tag: Тег клана.
+
+        Returns:
+            DTO клана из Clash API.
+
+        Raises:
+            ClashApiError: Если Clash API вернул ошибку.
+            TagValidationError: Если тег нельзя нормализовать внутри клиента.
+        """
+        return await self._clash_client.get_clan(clan_tag)
 
     async def add_clan(self, *, clan_tag: str, clan_type: ClanType | str) -> Clan:
         """Добавляет или реактивирует отслеживаемый клан.

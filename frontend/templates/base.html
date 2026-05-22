@@ -16,7 +16,7 @@
     <title>{{ page_title }} · BestiaryNavigator_bot</title>
     <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}">
   </head>
-  <body>
+  <body data-bn-admin="{{ 'true' if web_context.is_admin else 'false' }}" data-bn-readonly="{{ 'true' if web_context.is_readonly else 'false' }}">
     <div class="bn-layout">
       <aside class="bn-sidebar" aria-label="Основная навигация">
         <a class="bn-sidebar__brand" href="/">BestiaryNavigator_bot</a>
@@ -29,6 +29,11 @@
         <header class="bn-topbar">
           <a class="bn-brand" href="/">BestiaryNavigator_bot</a>
           <span class="bn-topbar__status">UI skeleton</span>
+          <span class="bn-topbar__status">{{ web_context.role_label }}</span>
+          {% if web_context.is_admin %}
+            <span class="bn-topbar__status" data-admin-only="true">Админ</span>
+            <a class="bn-button bn-button--ghost" href="/auth/logout" data-admin-only="true">Выйти</a>
+          {% endif %}
         </header>
 
         <main class="bn-page">

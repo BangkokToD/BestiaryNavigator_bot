@@ -33,6 +33,12 @@ class InMemoryClanRepository:
         """
         return self.clans.get(clan_tag)
 
+    async def list_all(self) -> tuple[Clan, ...]:
+        """Возвращает все кланы из in-memory storage."""
+        return tuple(
+            sorted(self.clans.values(), key=lambda clan: (not clan.is_active, clan.name, clan.tag))
+        )
+
     def add(self, clan: Clan) -> None:
         """Добавляет клан в in-memory storage.
 
@@ -77,6 +83,62 @@ class FakeClashClanProvider:
             raise self.result
 
         return self.result
+
+
+@pytest.mark.asyncio
+async def test_clan_management_service_lists_clans_without_clash_api_call() -> None:
+    """Проверяет чтение списка кланов без обращения к Clash API."""
+    active_clan = Clan(
+        tag="#2ABC",
+        name="Bestiary",
+        type=ClanType.MAIN.value,
+        is_active=True,
+    )
+    inactive_clan = Clan(
+        tag="#9XYZ",
+        name="Archive",
+        type=ClanType.FREEZER.value,
+        is_active=False,
+    )
+    repository = InMemoryClanRepository([inactive_clan, active_clan])
+    clash_provider = FakeClashClanProvider(
+        ClashClan(
+            tag="#2ABC",
+            name="Bestiary",
+            level=17,
+            badge_url=None,
+            members_count=44,
+        )
+    )
+    service = ClanManagementService(repository=repository, clash_client=clash_provider)
+
+    clans = await service.list_clans()
+
+    assert clans == (active_clan, inactive_clan)
+    assert clash_provider.calls == []
+    assert repository.flush_count == 0
+
+
+@pytest.mark.asyncio
+async def test_clan_management_service_checks_clan_without_saving() -> None:
+    """Проверяет Clash API check без сохранения клана."""
+    repository = InMemoryClanRepository()
+    verified_clan = ClashClan(
+        tag="#2ABC",
+        name="Bestiary",
+        level=17,
+        badge_url="https://example.test/badge.png",
+        members_count=44,
+    )
+    clash_provider = FakeClashClanProvider(verified_clan)
+    service = ClanManagementService(repository=repository, clash_client=clash_provider)
+
+    result = await service.check_clan(clan_tag="2abc")
+
+    assert result == verified_clan
+    assert clash_provider.calls == ["2abc"]
+    assert repository.clans == {}
+    assert repository.flush_count == 0
 
 
 @pytest.mark.asyncio
