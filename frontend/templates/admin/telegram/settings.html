@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section
+    class="bn-section bn-admin-telegram"
+    aria-labelledby="telegram-settings-title"
+    data-admin-telegram-settings
+  >
+    <div class="bn-section-header">
+      {{ badges.badge("Admin", variant="info") }}
+      <h1 id="telegram-settings-title" class="bn-page-title">Настройки Telegram</h1>
+      <p class="bn-page-lead">
+        Управление маршрутами уведомлений. Команду регистрации нужно скопировать и отправить
+        в нужный Telegram-чат или топик. Бот сам сохранит chat_id и message_thread_id.
+      </p>
+    </div>
+
+    {% if clans %}
+      <div class="bn-admin-telegram__grid" aria-label="Telegram routes по кланам">
+        {% for clan in clans %}
+          {% call cards.card(class_name="bn-telegram-clan-card") %}
+            <div class="bn-telegram-clan-card__header">
+              <div>
+                <p class="bn-card-eyebrow">{{ clan.tag }}</p>
+                <h2 class="bn-card-title">{{ clan.name }}</h2>
+                <p class="bn-card-text">{{ clan.type_label }}</p>
+              </div>
+
+              {% if clan.badge_url %}
+                <img
+                  class="bn-telegram-clan-card__badge"
+                  src="{{ clan.badge_url }}"
+                  alt="Эмблема {{ clan.name }}"
+                >
+              {% endif %}
+            </div>
+
+            <div class="bn-notification-types" aria-label="Типы уведомлений">
+              {% for item in clan.notification_types %}
+                <article class="bn-notification-type" data-notification-type="{{ item.value }}">
+                  <div class="bn-notification-type__header">
+                    <div>
+                      <p class="bn-card-eyebrow">{{ item.value }}</p>
+                      <h3 class="bn-notification-type__title">{{ item.label }}</h3>
+                    </div>
+                    {{ badges.badge(item.status_label, variant=item.status_variant) }}
+                  </div>
+
+                  <div class="bn-command-copy">
+                    <code class="bn-command-copy__value">{{ item.command }}</code>
+                    <button
+                      class="bn-button bn-button--ghost"
+                      type="button"
+                      data-copy-command="{{ item.command }}"
+                    >
+                      Скопировать команду
+                    </button>
+                  </div>
+
+                  {% if item.routes %}
+                    <div class="bn-route-list" aria-label="Подключённые маршруты">
+                      {% for route in item.routes %}
+                        <article
+                          class="bn-route-row{% if not route.enabled %} bn-route-row--disabled{% endif %}"
+                          data-route-id="{{ route.id }}"
+                        >
+                          <div class="bn-route-row__body">
+                            <div>
+                              <p class="bn-route-row__title">{{ route.chat_title }}</p>
+                              <p class="bn-card-text">
+                                chat_id: {{ route.chat_id }}
+                                · topic:
+                                {% if route.message_thread_id is not none %}
+                                  {{ route.message_thread_id }}
+                                {% else %}
+                                  без топика
+                                {% endif %}
+                              </p>
+                            </div>
+                            {{ badges.badge(route.status_label, variant=route.status_variant, class_name="bn-route-row__status") }}
+                          </div>
+
+                          <div class="bn-route-row__actions">
+                            <button
+                              class="bn-button bn-button--ghost"
+                              type="button"
+                              data-route-test-url="{{ route.test_url }}"
+                              {% if not route.enabled %}disabled{% endif %}
+                            >
+                              Тест
+                            </button>
+                            <button
+                              class="bn-button bn-button--ghost"
+                              type="button"
+                              data-route-disable-url="{{ route.disable_url }}"
+                              {% if not route.enabled %}disabled{% endif %}
+                            >
+                              Отключить
+                            </button>
+                          </div>
+
+                          <p class="bn-route-row__message" data-route-message aria-live="polite"></p>
+                        </article>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <p class="bn-card-text">Маршрут ещё не подключён.</p>
+                  {% endif %}
+                </article>
+              {% endfor %}
+            </div>
+          {% endcall %}
+        {% endfor %}
+      </div>
+    {% else %}
+      {% call empty_states.empty_state(
+        title="Кланы ещё не добавлены",
+        text="Сначала добавь кланы на странице настроек кланов, затем подключай Telegram-маршруты.",
+        eyebrow="Пусто"
+      ) %}
+        {{ buttons.button_link("/admin/settings/clans", "Открыть настройки кланов", variant="primary") }}
+      {% endcall %}
+    {% endif %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', path='/js/pages/admin_telegram_settings.js') }}" defer></script>
+{% endblock %}

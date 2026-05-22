@@ -26,6 +26,7 @@ def test_dashboard_returns_html_page() -> None:
     assert 'data-bn-readonly="true"' in response.text
     assert 'data-admin-only="true"' not in response.text
     assert "/admin/settings/clans" not in response.text
+    assert "/admin/settings/telegram" not in response.text
     assert 'class="bn-sidebar"' in response.text
     assert 'class="bn-topbar"' in response.text
     assert 'class="bn-page"' in response.text
@@ -49,6 +50,7 @@ def test_static_css_is_served() -> None:
     assert '@import url("./utilities.css");' in response.text
     assert '@import url("./pages/dashboard.css");' in response.text
     assert '@import url("./pages/admin_clans.css");' in response.text
+    assert '@import url("./pages/admin_telegram.css");' in response.text
 
 
 def test_css_layers_are_served() -> None:
@@ -60,6 +62,7 @@ def test_css_layers_are_served() -> None:
         utilities_response = client.get("/static/css/utilities.css")
         dashboard_response = client.get("/static/css/pages/dashboard.css")
         admin_clans_response = client.get("/static/css/pages/admin_clans.css")
+        admin_telegram_response = client.get("/static/css/pages/admin_telegram.css")
 
     assert tokens_response.status_code == 200
     assert base_response.status_code == 200
@@ -67,6 +70,7 @@ def test_css_layers_are_served() -> None:
     assert utilities_response.status_code == 200
     assert dashboard_response.status_code == 200
     assert admin_clans_response.status_code == 200
+    assert admin_telegram_response.status_code == 200
 
     assert "--bn-bg-page" in tokens_response.text
     assert "color-scheme: dark" in tokens_response.text
@@ -88,6 +92,8 @@ def test_css_layers_are_served() -> None:
     assert ".bn-dashboard" in dashboard_response.text
     assert ".bn-admin-clans" in admin_clans_response.text
     assert "minmax(16rem, 1fr)" in admin_clans_response.text
+    assert ".bn-admin-telegram" in admin_telegram_response.text
+    assert ".bn-notification-type" in admin_telegram_response.text
 
 
 def test_templates_do_not_use_inline_styles() -> None:

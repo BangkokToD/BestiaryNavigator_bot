@@ -1,0 +1,114 @@
+.bn-admin-telegram {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.bn-admin-telegram__grid,
+.bn-notification-types,
+.bn-route-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.bn-telegram-clan-card__header {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.bn-telegram-clan-card__badge {
+  width: 4rem;
+  height: 4rem;
+  border: 1px solid var(--bn-border-soft);
+  border-radius: var(--bn-radius-md);
+  background: var(--bn-bg-surface-2);
+  object-fit: contain;
+}
+
+.bn-notification-type {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid var(--bn-border-soft);
+  border-radius: var(--bn-radius-md);
+  background: var(--bn-bg-surface-2);
+  padding: 0.875rem;
+}
+
+.bn-notification-type__header,
+.bn-route-row__body {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.bn-notification-type__title,
+.bn-route-row__title {
+  margin: 0;
+  color: var(--bn-text-main);
+  font-size: 1rem;
+}
+
+.bn-command-copy {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.bn-command-copy__value {
+  overflow-x: auto;
+  border: 1px solid var(--bn-border-soft);
+  border-radius: var(--bn-radius-md);
+  background: var(--bn-bg-surface);
+  color: var(--bn-text-soft);
+  padding: 0.75rem;
+  white-space: nowrap;
+}
+
+.bn-route-row {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid var(--bn-border-soft);
+  border-radius: var(--bn-radius-md);
+  background: var(--bn-bg-surface);
+  padding: 0.75rem;
+}
+
+.bn-route-row--disabled {
+  opacity: 0.68;
+}
+
+.bn-route-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.bn-route-row__message {
+  min-height: 1.25rem;
+  margin: 0;
+  color: var(--bn-text-soft);
+  font-size: 0.875rem;
+}
+
+.bn-route-row__message[data-state="success"] {
+  color: var(--bn-status-ok);
+}
+
+.bn-route-row__message[data-state="error"] {
+  color: var(--bn-status-danger);
+}
+
+@media (min-width: 768px) {
+  .bn-admin-telegram__grid {
+    grid-template-columns: repeat(2, minmax(18rem, 1fr));
+  }
+
+  .bn-telegram-clan-card__header,
+  .bn-notification-type__header,
+  .bn-route-row__body {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .bn-command-copy {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}

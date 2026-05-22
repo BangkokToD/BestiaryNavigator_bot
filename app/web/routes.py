@@ -7,6 +7,7 @@ from app.web.admin_api_errors import router as admin_api_errors_router
 from app.web.admin_clan_settings import router as admin_clan_settings_router
 from app.web.admin_clans import router as admin_clans_router
 from app.web.admin_notification_routes import router as admin_notification_routes_router
+from app.web.admin_telegram_settings import router as admin_telegram_settings_router
 from app.web.auth import router as auth_router
 from app.web.context import build_template_context
 from app.web.templates import templates
@@ -16,6 +17,7 @@ router.include_router(auth_router)
 router.include_router(admin_api_errors_router)
 router.include_router(admin_clan_settings_router)
 router.include_router(admin_clans_router)
+router.include_router(admin_telegram_settings_router)
 router.include_router(admin_notification_routes_router)
 
 

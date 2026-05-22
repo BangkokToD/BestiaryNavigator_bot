@@ -26,6 +26,9 @@
             <a class="bn-sidebar__link" href="/admin/settings/clans" {% if active_nav|default("") == "admin_clans" %}aria-current="page"{% endif %} data-admin-only="true">
               Настройки кланов
             </a>
+            <a class="bn-sidebar__link" href="/admin/settings/telegram" {% if active_nav|default("") == "admin_telegram" %}aria-current="page"{% endif %} data-admin-only="true">
+              Настройки Telegram
+            </a>
           {% endif %}
         </nav>
       </aside>
@@ -46,5 +49,6 @@
         </main>
       </div>
     </div>
+    {% block scripts %}{% endblock %}
   </body>
 </html>
