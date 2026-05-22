@@ -137,6 +137,13 @@ class FakeWarningTargetResolverService:
         """Инициализирует fake resolver."""
 
 
+class FakeWarningPermissionService:
+    """Fake warning permission service для проверки DI wiring."""
+
+    def __init__(self) -> None:
+        """Инициализирует fake permission service."""
+
+
 def make_settings() -> Settings:
     """Создаёт settings для middleware-тестов.
 
@@ -153,12 +160,14 @@ async def test_telegram_user_middleware_upserts_user_and_commits() -> None:
     fake_service = FakeTelegramUserService()
     fake_account_linking_service = FakeAccountLinkingService()
     fake_warning_target_resolver = FakeWarningTargetResolverService()
+    fake_warning_permission_service = FakeWarningPermissionService()
     middleware = TelegramUserMiddleware(
         settings=make_settings(),
         session_factory=session_factory,  # type: ignore[arg-type]
         telegram_user_service_factory=lambda **_: fake_service,
         account_linking_service_factory=lambda **_: fake_account_linking_service,
         warning_target_resolver_service_factory=lambda **_: fake_warning_target_resolver,
+        warning_permission_service_factory=lambda **_: fake_warning_permission_service,
     )
     event = FakeUpdate(
         message=FakeMessage(
@@ -189,6 +198,7 @@ async def test_telegram_user_middleware_upserts_user_and_commits() -> None:
     assert captured_data["telegram_user_service"] is fake_service
     assert captured_data["account_linking_service"] is fake_account_linking_service
     assert captured_data["warning_target_resolver"] is fake_warning_target_resolver
+    assert captured_data["warning_permission_service"] is fake_warning_permission_service
     assert captured_data["settings"] == make_settings()
     assert session_factory.session.commit_count == 1
     assert session_factory.session.rollback_count == 0
@@ -201,12 +211,14 @@ async def test_telegram_user_middleware_rolls_back_on_handler_error() -> None:
     fake_service = FakeTelegramUserService()
     fake_account_linking_service = FakeAccountLinkingService()
     fake_warning_target_resolver = FakeWarningTargetResolverService()
+    fake_warning_permission_service = FakeWarningPermissionService()
     middleware = TelegramUserMiddleware(
         settings=make_settings(),
         session_factory=session_factory,  # type: ignore[arg-type]
         telegram_user_service_factory=lambda **_: fake_service,
         account_linking_service_factory=lambda **_: fake_account_linking_service,
         warning_target_resolver_service_factory=lambda **_: fake_warning_target_resolver,
+        warning_permission_service_factory=lambda **_: fake_warning_permission_service,
     )
     event = FakeUpdate(
         message=FakeMessage(
@@ -242,12 +254,14 @@ async def test_telegram_user_middleware_skips_update_without_user() -> None:
     fake_service = FakeTelegramUserService()
     fake_account_linking_service = FakeAccountLinkingService()
     fake_warning_target_resolver = FakeWarningTargetResolverService()
+    fake_warning_permission_service = FakeWarningPermissionService()
     middleware = TelegramUserMiddleware(
         settings=make_settings(),
         session_factory=session_factory,  # type: ignore[arg-type]
         telegram_user_service_factory=lambda **_: fake_service,
         account_linking_service_factory=lambda **_: fake_account_linking_service,
         warning_target_resolver_service_factory=lambda **_: fake_warning_target_resolver,
+        warning_permission_service_factory=lambda **_: fake_warning_permission_service,
     )
     captured_data: dict[str, Any] = {}
 

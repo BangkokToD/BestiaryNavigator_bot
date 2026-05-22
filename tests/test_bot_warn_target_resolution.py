@@ -11,10 +11,13 @@ from app.bot.routers.warn import (
     handle_warn_command,
     handle_warn_target_choice,
 )
+from app.db.models import TelegramUser
 from app.services import (
     WarningTargetAccount,
     WarningTargetCandidate,
     WarningTargetResolution,
+    WarnPermissionDecision,
+    WarnPermissionStatus,
 )
 
 
@@ -117,20 +120,61 @@ class FakeWarnTargetResolver:
         return self.resolution
 
 
+class FakeWarnPermissionService:
+    """Fake permission service для warn handler tests."""
+
+    def __init__(
+        self,
+        *,
+        initiator_decision: WarnPermissionDecision | None = None,
+        target_decision: WarnPermissionDecision | None = None,
+    ) -> None:
+        """Инициализирует fake permission service."""
+        self.initiator_decision = initiator_decision or WarnPermissionDecision.allow()
+        self.target_decision = target_decision or WarnPermissionDecision.allow()
+        self.calls: list[tuple[str, object]] = []
+
+    async def check_initiator(
+        self,
+        *,
+        telegram_user: TelegramUser | None,
+    ) -> WarnPermissionDecision:
+        """Фиксирует проверку инициатора."""
+        self.calls.append(("initiator", telegram_user))
+        return self.initiator_decision
+
+    async def check_target(
+        self,
+        *,
+        candidate: WarningTargetCandidate,
+    ) -> WarnPermissionDecision:
+        """Фиксирует проверку цели."""
+        self.calls.append(("target", candidate.telegram_user_id))
+        return self.target_decision
+
+
 @pytest.mark.asyncio
 async def test_warn_command_resolves_reply_target_first() -> None:
     """Проверяет приоритет reply перед тегом и username."""
     candidate = _make_candidate()
     resolver = FakeWarnTargetResolver(WarningTargetResolution.resolved(candidate))
+    permission = FakeWarnPermissionService()
     state = FakeState()
     message = FakeMessage(
         text="/warn #9XYZ @someone",
         reply_to_message=FakeReplyMessage(from_user=FakeTelegramUser(id=777)),
     )
 
-    await handle_warn_command(message, state, resolver)  # type: ignore[arg-type]
+    await handle_warn_command(
+        message,  # type: ignore[arg-type]
+        state,  # type: ignore[arg-type]
+        _make_author(),
+        resolver,
+        permission,
+    )
 
     assert resolver.calls == [("reply", 777)]
+    assert [call[0] for call in permission.calls] == ["initiator", "target"]
     assert state.current_state == WarnFlowStates.waiting_for_reason
     assert state.data["warn_target"]["telegram_user_id"] == 101
     assert "Цель найдена" in message.answers[0]["text"]
@@ -141,10 +185,17 @@ async def test_warn_command_resolves_player_tag() -> None:
     """Проверяет поиск по #PLAYER_TAG."""
     candidate = _make_candidate()
     resolver = FakeWarnTargetResolver(WarningTargetResolution.resolved(candidate))
+    permission = FakeWarnPermissionService()
     state = FakeState()
     message = FakeMessage(text="/warn #2ABC")
 
-    await handle_warn_command(message, state, resolver)  # type: ignore[arg-type]
+    await handle_warn_command(
+        message,  # type: ignore[arg-type]
+        state,  # type: ignore[arg-type]
+        _make_author(),
+        resolver,
+        permission,
+    )
 
     assert resolver.calls == [("tag", "#2ABC")]
     assert state.current_state == WarnFlowStates.waiting_for_reason
@@ -162,10 +213,17 @@ async def test_warn_command_resolves_username_ambiguity_with_inline_buttons() ->
             )
         )
     )
+    permission = FakeWarnPermissionService()
     state = FakeState()
     message = FakeMessage(text="/warn @same")
 
-    await handle_warn_command(message, state, resolver)  # type: ignore[arg-type]
+    await handle_warn_command(
+        message,  # type: ignore[arg-type]
+        state,  # type: ignore[arg-type]
+        _make_author(),
+        resolver,
+        permission,
+    )
 
     assert resolver.calls == [("username", "@same")]
     assert state.current_state is None
@@ -177,10 +235,17 @@ async def test_warn_command_resolves_username_ambiguity_with_inline_buttons() ->
 async def test_warn_command_rejects_unlinked_account() -> None:
     """Проверяет отказ для непривязанного аккаунта."""
     resolver = FakeWarnTargetResolver(WarningTargetResolution.unlinked(player_tag="#2ABC"))
+    permission = FakeWarnPermissionService()
     state = FakeState()
     message = FakeMessage(text="/warn #2ABC")
 
-    await handle_warn_command(message, state, resolver)  # type: ignore[arg-type]
+    await handle_warn_command(
+        message,  # type: ignore[arg-type]
+        state,  # type: ignore[arg-type]
+        _make_author(),
+        resolver,
+        permission,
+    )
 
     assert resolver.calls == [("tag", "#2ABC")]
     assert state.current_state is None
@@ -189,15 +254,67 @@ async def test_warn_command_rejects_unlinked_account() -> None:
 
 
 @pytest.mark.asyncio
+async def test_warn_command_denies_before_target_resolution_without_permission() -> None:
+    """Проверяет отказ до поиска цели, если у инициатора нет прав."""
+    resolver = FakeWarnTargetResolver(WarningTargetResolution.resolved(_make_candidate()))
+    permission = FakeWarnPermissionService(
+        initiator_decision=WarnPermissionDecision.denied(WarnPermissionStatus.ROLE_NOT_ALLOWED)
+    )
+    state = FakeState()
+    message = FakeMessage(text="/warn #2ABC")
+
+    await handle_warn_command(
+        message,  # type: ignore[arg-type]
+        state,  # type: ignore[arg-type]
+        _make_author(),
+        resolver,
+        permission,
+    )
+
+    assert resolver.calls == []
+    assert state.current_state is None
+    assert "leader, coLeader или elder" in message.answers[0]["text"]
+
+
+@pytest.mark.asyncio
+async def test_warn_command_rejects_target_outside_main_clan() -> None:
+    """Проверяет отказ, если цель не подтверждена в main-клане."""
+    resolver = FakeWarnTargetResolver(WarningTargetResolution.resolved(_make_candidate()))
+    permission = FakeWarnPermissionService(
+        target_decision=WarnPermissionDecision.denied(WarnPermissionStatus.TARGET_NOT_MAIN)
+    )
+    state = FakeState()
+    message = FakeMessage(text="/warn #2ABC")
+
+    await handle_warn_command(
+        message,  # type: ignore[arg-type]
+        state,  # type: ignore[arg-type]
+        _make_author(),
+        resolver,
+        permission,
+    )
+
+    assert state.current_state is None
+    assert "основном клане" in message.answers[0]["text"]
+
+
+@pytest.mark.asyncio
 async def test_warn_target_choice_saves_pending_target() -> None:
     """Проверяет выбор цели из inline-кнопки."""
     candidate = _make_candidate()
     resolver = FakeWarnTargetResolver(WarningTargetResolution.resolved(candidate))
+    permission = FakeWarnPermissionService()
     state = FakeState()
     message = FakeMessage()
     callback_query = FakeCallbackQuery(data="warn_target:101", message=message)
 
-    await handle_warn_target_choice(callback_query, state, resolver)  # type: ignore[arg-type]
+    await handle_warn_target_choice(
+        callback_query,  # type: ignore[arg-type]
+        state,  # type: ignore[arg-type]
+        _make_author(),
+        resolver,
+        permission,
+    )
 
     assert resolver.calls == [("telegram_user_id", 101)]
     assert callback_query.answers == [{"text": "Цель выбрана."}]
@@ -232,4 +349,13 @@ def _make_candidate(
                 player_name=player_name,
             ),
         ),
+    )
+
+
+def _make_author() -> TelegramUser:
+    """Создаёт автора `/warn` для handler-тестов."""
+    return TelegramUser(
+        id=303,
+        telegram_id=777,
+        username="officer",
     )

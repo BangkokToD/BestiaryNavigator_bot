@@ -14,6 +14,7 @@ from app.integrations.clash import ClashApiClient
 from app.services import (
     AccountLinkingService,
     TelegramUserService,
+    WarningPermissionService,
     WarningTargetResolverService,
 )
 
@@ -98,6 +99,28 @@ class WarningTargetResolverServiceFactory(Protocol):
         """
 
 
+class WarningPermissionServiceFactory(Protocol):
+    """Contract фабрики сервиса проверки прав `/warn`."""
+
+    def __call__(
+        self,
+        *,
+        session: AsyncSession,
+        clash_client: object,
+        settings: Settings,
+    ) -> object:
+        """Создаёт сервис проверки прав `/warn`.
+
+        Args:
+            session: Async SQLAlchemy session.
+            clash_client: Clash API provider.
+            settings: Runtime settings.
+
+        Returns:
+            Сервис проверки прав `/warn`.
+        """
+
+
 class BotSessionFactory(Protocol):
     """Contract фабрики DB-session для bot middleware."""
 
@@ -129,6 +152,7 @@ class TelegramUserMiddleware(BaseMiddleware):
         telegram_user_service_factory: TelegramUserServiceFactory | None = None,
         account_linking_service_factory: AccountLinkingServiceFactory | None = None,
         warning_target_resolver_service_factory: WarningTargetResolverServiceFactory | None = None,
+        warning_permission_service_factory: WarningPermissionServiceFactory | None = None,
     ) -> None:
         """Инициализирует middleware.
 
@@ -138,6 +162,7 @@ class TelegramUserMiddleware(BaseMiddleware):
             telegram_user_service_factory: Явная фабрика сервиса для тестов.
             account_linking_service_factory: Явная фабрика сервиса привязки для тестов.
             warning_target_resolver_service_factory: Явная фабрика resolver-а warn.
+            warning_permission_service_factory: Явная фабрика permission-сервиса warn.
         """
         self._settings = settings
         self._session_factory = session_factory
@@ -149,6 +174,9 @@ class TelegramUserMiddleware(BaseMiddleware):
         )
         self._warning_target_resolver_service_factory = (
             warning_target_resolver_service_factory or _default_warning_target_resolver_factory
+        )
+        self._warning_permission_service_factory = (
+            warning_permission_service_factory or _default_warning_permission_service_factory
         )
 
     async def __call__(
@@ -185,11 +213,17 @@ class TelegramUserMiddleware(BaseMiddleware):
             warning_target_resolver = self._warning_target_resolver_service_factory(
                 session=session,
             )
+            warning_permission_service = self._warning_permission_service_factory(
+                session=session,
+                clash_client=clash_client,
+                settings=self._settings,
+            )
             data["db_session"] = session
             data["settings"] = self._settings
             data["telegram_user_service"] = telegram_user_service
             data["account_linking_service"] = account_linking_service
             data["warning_target_resolver"] = warning_target_resolver
+            data["warning_permission_service"] = warning_permission_service
             data["telegram_user"] = await self._upsert_user_from_event(
                 event=event,
                 telegram_user_service=telegram_user_service,
@@ -276,6 +310,29 @@ def _default_warning_target_resolver_factory(*, session: AsyncSession) -> object
     return WarningTargetResolverService.from_session(session=session)
 
 
+def _default_warning_permission_service_factory(
+    *,
+    session: AsyncSession,
+    clash_client: object,
+    settings: Settings,
+) -> object:
+    """Создаёт production WarningPermissionService.
+
+    Args:
+        session: Async SQLAlchemy session.
+        clash_client: Clash API provider.
+        settings: Runtime settings.
+
+    Returns:
+        Сервис проверки прав `/warn`.
+    """
+    return WarningPermissionService.from_session(
+        session=session,
+        clash_client=clash_client,
+        settings=settings,
+    )
+
+
 def _extract_from_user(event: object) -> object | None:
     """Достаёт `from_user` из aiogram event/update.
 
@@ -360,5 +417,6 @@ __all__ = [
     "TelegramUserMiddleware",
     "TelegramUserServiceFactory",
     "TelegramUserUpsertService",
+    "WarningPermissionServiceFactory",
     "WarningTargetResolverServiceFactory",
 ]

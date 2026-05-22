@@ -10,10 +10,13 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+from app.db.models import TelegramUser
 from app.services import (
     WarningTargetCandidate,
     WarningTargetResolution,
     WarningTargetResolutionKind,
+    WarnPermissionDecision,
+    WarnPermissionStatus,
 )
 
 _PLAYER_TAG_PATTERN = re.compile(r"#[A-Za-z0-9]+")
@@ -43,19 +46,48 @@ class WarnTargetResolver(Protocol):
         """Ищет цель по DB ID TelegramUser."""
 
 
+class WarnPermissionChecker(Protocol):
+    """Contract сервиса проверки прав ручного warn."""
+
+    async def check_initiator(
+        self,
+        *,
+        telegram_user: TelegramUser | None,
+    ) -> WarnPermissionDecision:
+        """Проверяет право инициатора использовать `/warn`."""
+
+    async def check_target(
+        self,
+        *,
+        candidate: WarningTargetCandidate,
+    ) -> WarnPermissionDecision:
+        """Проверяет, что цель находится в main-клане."""
+
+
 async def handle_warn_command(
     message: Message,
     state: FSMContext,
+    telegram_user: TelegramUser | None,
     warning_target_resolver: WarnTargetResolver,
+    warning_permission_service: WarnPermissionChecker,
 ) -> None:
     """Определяет цель команды `/warn` без создания Warning.
 
     Args:
         message: Сообщение с командой `/warn`.
         state: FSM context.
+        telegram_user: Инициатор команды из middleware.
         warning_target_resolver: Сервис поиска цели warn.
+        warning_permission_service: Сервис проверки прав warn.
     """
     await state.clear()
+
+    initiator_decision = await warning_permission_service.check_initiator(
+        telegram_user=telegram_user,
+    )
+    if not initiator_decision.allowed:
+        await message.answer(_format_initiator_denial(initiator_decision))
+        return
 
     hint = _extract_warn_target_hint(message)
     if hint is None:
@@ -68,21 +100,40 @@ async def handle_warn_command(
         hint=hint,
         warning_target_resolver=warning_target_resolver,
     )
-    await _handle_resolution(message=message, state=state, resolution=resolution)
+    await _handle_resolution(
+        message=message,
+        state=state,
+        resolution=resolution,
+        warning_permission_service=warning_permission_service,
+    )
 
 
 async def handle_warn_target_choice(
     callback_query: CallbackQuery,
     state: FSMContext,
+    telegram_user: TelegramUser | None,
     warning_target_resolver: WarnTargetResolver,
+    warning_permission_service: WarnPermissionChecker,
 ) -> None:
     """Обрабатывает выбор цели warn из inline-кнопок.
 
     Args:
         callback_query: Callback query с выбранным TelegramUser ID.
         state: FSM context.
+        telegram_user: Пользователь, который нажал inline-кнопку.
         warning_target_resolver: Сервис поиска цели warn.
+        warning_permission_service: Сервис проверки прав warn.
     """
+    initiator_decision = await warning_permission_service.check_initiator(
+        telegram_user=telegram_user,
+    )
+    if not initiator_decision.allowed:
+        await callback_query.answer(
+            _format_initiator_denial(initiator_decision),
+            show_alert=True,
+        )
+        return
+
     telegram_user_id = _parse_warn_target_callback_data(callback_query.data or "")
     if telegram_user_id is None:
         await callback_query.answer("Цель не найдена.", show_alert=True)
@@ -94,6 +145,14 @@ async def handle_warn_target_choice(
         return
 
     candidate = resolution.candidates[0]
+    target_decision = await warning_permission_service.check_target(candidate=candidate)
+    if not target_decision.allowed:
+        await callback_query.answer(
+            _format_target_denial(target_decision),
+            show_alert=True,
+        )
+        return
+
     await _save_pending_target(state=state, candidate=candidate)
     await callback_query.answer("Цель выбрана.")
 
@@ -147,6 +206,7 @@ async def _handle_resolution(
     message: Message,
     state: FSMContext,
     resolution: WarningTargetResolution,
+    warning_permission_service: WarnPermissionChecker,
 ) -> None:
     """Обрабатывает результат поиска цели warn.
 
@@ -154,6 +214,7 @@ async def _handle_resolution(
         message: Входящее сообщение.
         state: FSM context.
         resolution: Результат поиска цели.
+        warning_permission_service: Сервис проверки прав warn.
     """
     if resolution.kind == WarningTargetResolutionKind.NOT_FOUND:
         await message.answer("Цель warn не найдена. Проверь reply, тег игрока или @username.")
@@ -172,6 +233,11 @@ async def _handle_resolution(
         return
 
     candidate = resolution.candidates[0]
+    target_decision = await warning_permission_service.check_target(candidate=candidate)
+    if not target_decision.allowed:
+        await message.answer(_format_target_denial(target_decision))
+        return
+
     await _save_pending_target(state=state, candidate=candidate)
     await message.answer(_format_resolved_message(candidate))
 
@@ -287,6 +353,45 @@ def _format_resolved_message(candidate: WarningTargetCandidate) -> str:
     )
 
 
+def _format_initiator_denial(decision: WarnPermissionDecision) -> str:
+    """Форматирует отказ инициатору `/warn`.
+
+    Args:
+        decision: Результат проверки прав.
+
+    Returns:
+        Текст отказа.
+    """
+    if decision.status == WarnPermissionStatus.NO_TELEGRAM_USER:
+        return "Не удалось определить Telegram-пользователя. Напиши /start и попробуй снова."
+
+    if decision.status == WarnPermissionStatus.NO_LINKED_MAIN_ACCOUNT:
+        return "Команда /warn доступна только игрокам с привязанным аккаунтом в основном клане."
+
+    if decision.status == WarnPermissionStatus.ROLE_UNCONFIRMED:
+        return "Не удалось подтвердить актуальную роль в основном клане. Попробуй позже."
+
+    return "Команда /warn доступна только leader, coLeader или elder основного клана."
+
+
+def _format_target_denial(decision: WarnPermissionDecision) -> str:
+    """Форматирует отказ по цели warn.
+
+    Args:
+        decision: Результат проверки цели.
+
+    Returns:
+        Текст отказа.
+    """
+    if decision.status == WarnPermissionStatus.TARGET_UNCONFIRMED:
+        return "Не удалось подтвердить, что цель сейчас находится в основном клане. Warn не создан."
+
+    return (
+        "Цель не подтверждена в основном клане. Academy/freezer не участвуют "
+        "в ручной warn-системе. Warn не создан."
+    )
+
+
 def _parse_warn_target_callback_data(value: str) -> int | None:
     """Парсит callback data выбора цели warn.
 
@@ -310,6 +415,7 @@ def _parse_warn_target_callback_data(value: str) -> int | None:
 
 __all__ = [
     "WarnFlowStates",
+    "WarnPermissionChecker",
     "WarnTargetResolver",
     "create_warn_router",
     "handle_warn_command",
