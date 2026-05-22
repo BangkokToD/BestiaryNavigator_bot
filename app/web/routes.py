@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, Response
 
 from app.web.admin_api_errors import router as admin_api_errors_router
+from app.web.admin_clan_settings import router as admin_clan_settings_router
 from app.web.admin_clans import router as admin_clans_router
 from app.web.admin_notification_routes import router as admin_notification_routes_router
 from app.web.auth import router as auth_router
@@ -13,6 +14,7 @@ from app.web.templates import templates
 router = APIRouter(include_in_schema=False)
 router.include_router(auth_router)
 router.include_router(admin_api_errors_router)
+router.include_router(admin_clan_settings_router)
 router.include_router(admin_clans_router)
 router.include_router(admin_notification_routes_router)
 
@@ -33,5 +35,6 @@ async def dashboard(request: Request) -> Response:
         build_template_context(
             request,
             page_title="Dashboard",
+            active_nav="dashboard",
         ),
     )
