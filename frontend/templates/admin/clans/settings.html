@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="bn-section bn-admin-clans" aria-labelledby="clan-settings-title">
+    <div class="bn-section-header">
+      {{ badges.badge("Admin", variant="info") }}
+      <h1 id="clan-settings-title" class="bn-page-title">Настройки кланов</h1>
+      <p class="bn-page-lead">
+        Управление отслеживаемыми кланами. Удаление здесь означает отключение мониторинга:
+        история, события, warn и связанные данные не удаляются.
+      </p>
+
+      {% if notice %}
+        <p class="bn-form-message bn-form-message--success" role="status">{{ notice }}</p>
+      {% endif %}
+    </div>
+
+    <div class="bn-admin-clans__forms">
+      {% call cards.card(title="Проверить клан", eyebrow="Clash API", class_name="bn-admin-clans__form-card") %}
+        <form class="bn-form" method="post" action="/admin/settings/clans/check">
+          <div class="bn-field">
+            <label class="bn-label" for="check-clan-tag">Тег клана</label>
+            <input
+              class="bn-input"
+              id="check-clan-tag"
+              name="clan_tag"
+              type="text"
+              value="{{ form_values.get('clan_tag', '') }}"
+              placeholder="#2ABC"
+              autocomplete="off"
+            >
+          </div>
+
+          <div class="bn-form__actions">
+            <button class="bn-button bn-button--ghost" type="submit">Проверить тег</button>
+          </div>
+
+          {% if action_feedback and action_feedback.target == "check" %}
+            <p
+              class="bn-form-message bn-form-message--{{ action_feedback.variant }}"
+              data-action-target="check"
+            >
+              {{ action_feedback.message }}
+            </p>
+          {% endif %}
+        </form>
+
+        {% if verified_clan %}
+          <div class="bn-admin-clans__verified">
+            {{ badges.badge("Клан найден", variant="info") }}
+            <p class="bn-card-title">{{ verified_clan.name }}</p>
+            <p class="bn-card-text">
+              {{ verified_clan.tag }}
+              {% if verified_clan.level %} · Уровень {{ verified_clan.level }}{% endif %}
+              {% if verified_clan.members_count is not none %}
+                · Участников {{ verified_clan.members_count }}
+              {% endif %}
+            </p>
+          </div>
+        {% endif %}
+      {% endcall %}
+
+      {% call cards.card(title="Добавить клан", eyebrow="Мониторинг", class_name="bn-admin-clans__form-card") %}
+        <form class="bn-form" method="post" action="/admin/settings/clans/add">
+          <div class="bn-form__grid">
+            <div class="bn-field">
+              <label class="bn-label" for="add-clan-tag">Тег клана</label>
+              <input
+                class="bn-input"
+                id="add-clan-tag"
+                name="clan_tag"
+                type="text"
+                value="{{ form_values.get('clan_tag', '') }}"
+                placeholder="#2ABC"
+                autocomplete="off"
+              >
+            </div>
+
+            <div class="bn-field">
+              <label class="bn-label" for="add-clan-type">Тип клана</label>
+              <select class="bn-select" id="add-clan-type" name="clan_type">
+                {% for clan_type in clan_types %}
+                  <option value="{{ clan_type.value }}" {% if form_values.get('clan_type') == clan_type.value %}selected{% endif %}>
+                    {{ clan_type.label }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <p class="bn-card-text">
+            Добавление всегда сначала проверяет тег через Clash API.
+          </p>
+
+          <div class="bn-form__actions">
+            <button class="bn-button bn-button--primary" type="submit">Добавить клан</button>
+          </div>
+
+          {% if action_feedback and action_feedback.target == "add" %}
+            <p
+              class="bn-form-message bn-form-message--{{ action_feedback.variant }}"
+              data-action-target="add"
+            >
+              {{ action_feedback.message }}
+            </p>
+          {% endif %}
+        </form>
+      {% endcall %}
+    </div>
+
+    {% if clans %}
+      <div class="bn-admin-clans__grid" aria-label="Список кланов">
+        {% for clan in clans %}
+          {% call cards.card(class_name="bn-admin-clan-card{% if not clan.is_active %} bn-admin-clan-card--disabled{% endif %}") %}
+            <div class="bn-admin-clan-card__header">
+              <div>
+                <p class="bn-card-eyebrow">{{ clan.tag }}</p>
+                <h2 class="bn-card-title">{{ clan.name }}</h2>
+              </div>
+              <div class="bn-admin-clan-card__badges">
+                {{ badges.badge(clan.type_label, variant="info") }}
+                {% if clan.is_active %}
+                  {{ badges.badge("Активен", variant="info") }}
+                {% else %}
+                  {{ badges.badge("Отключён", variant="muted") }}
+                {% endif %}
+              </div>
+            </div>
+
+            {% if clan.badge_url %}
+              <img class="bn-admin-clan-card__badge" src="{{ clan.badge_url }}" alt="Эмблема {{ clan.name }}">
+            {% endif %}
+
+            <dl class="bn-admin-clan-card__meta">
+              <div>
+                <dt>Тип</dt>
+                <dd>{{ clan.type_label }}</dd>
+              </div>
+              <div>
+                <dt>Уровень</dt>
+                <dd>{{ clan.level if clan.level is not none else "нет данных" }}</dd>
+              </div>
+              <div>
+                <dt>Sync</dt>
+                <dd>{{ clan.sync_status }}</dd>
+              </div>
+              <div>
+                <dt>Последняя синхронизация</dt>
+                <dd>{{ clan.last_sync_text }}</dd>
+              </div>
+            </dl>
+
+            <div class="bn-admin-clan-card__actions">
+              <form class="bn-form bn-form--inline" method="post" action="/admin/settings/clans/type">
+                <input type="hidden" name="clan_tag" value="{{ clan.tag }}">
+                <div class="bn-field">
+                  <label class="bn-label" for="clan-type-{{ loop.index }}">Тип клана</label>
+                  <select class="bn-select" id="clan-type-{{ loop.index }}" name="clan_type">
+                    {% for clan_type in clan_types %}
+                      <option value="{{ clan_type.value }}" {% if clan.type == clan_type.value %}selected{% endif %}>
+                        {{ clan_type.label }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <button class="bn-button bn-button--ghost" type="submit">Изменить тип</button>
+              </form>
+
+              <p class="bn-card-text">
+                Смена типа меняет правила warn, напоминаний и боевых блоков.
+              </p>
+
+              {% if action_feedback and action_feedback.target == clan.type_action_target %}
+                <p
+                  class="bn-form-message bn-form-message--{{ action_feedback.variant }}"
+                  data-action-target="{{ clan.type_action_target }}"
+                >
+                  {{ action_feedback.message }}
+                </p>
+              {% endif %}
+
+              <form class="bn-form bn-form--inline" method="post" action="/admin/settings/clans/refresh">
+                <input type="hidden" name="clan_tag" value="{{ clan.tag }}">
+                <button class="bn-button bn-button--ghost" type="submit">Обновить из Clash API</button>
+              </form>
+
+              {% if action_feedback and action_feedback.target == clan.refresh_action_target %}
+                <p
+                  class="bn-form-message bn-form-message--{{ action_feedback.variant }}"
+                  data-action-target="{{ clan.refresh_action_target }}"
+                >
+                  {{ action_feedback.message }}
+                </p>
+              {% endif %}
+
+              <form class="bn-form bn-form--inline" method="post" action="/admin/settings/clans/deactivate">
+                <input type="hidden" name="clan_tag" value="{{ clan.tag }}">
+                <button
+                  class="bn-button bn-button--ghost"
+                  type="submit"
+                  {% if not clan.is_active %}disabled{% endif %}
+                >
+                  Удалить / деактивировать
+                </button>
+              </form>
+
+              {% if action_feedback and action_feedback.target == clan.deactivate_action_target %}
+                <p
+                  class="bn-form-message bn-form-message--{{ action_feedback.variant }}"
+                  data-action-target="{{ clan.deactivate_action_target }}"
+                >
+                  {{ action_feedback.message }}
+                </p>
+              {% endif %}
+            </div>
+          {% endcall %}
+        {% endfor %}
+      </div>
+    {% else %}
+      {% call empty_states.empty_state(
+        title="Кланы ещё не добавлены",
+        text="Добавь первый клан через форму выше. Перед сохранением система проверит тег через Clash API.",
+        eyebrow="Пусто"
+      ) %}
+      {% endcall %}
+    {% endif %}
+  </section>
+{% endblock %}

@@ -21,7 +21,18 @@
       <aside class="bn-sidebar" aria-label="Основная навигация">
         <a class="bn-sidebar__brand" href="/">BestiaryNavigator_bot</a>
         <nav class="bn-sidebar__nav" aria-label="Разделы">
-          <a class="bn-sidebar__link" href="/" aria-current="page">Dashboard</a>
+          <a class="bn-sidebar__link" href="/" {% if active_nav|default("dashboard") == "dashboard" %}aria-current="page"{% endif %}>Dashboard</a>
+          {% if web_context.is_admin %}
+            <a class="bn-sidebar__link" href="/admin/settings/clans" {% if active_nav|default("") == "admin_clans" %}aria-current="page"{% endif %} data-admin-only="true">
+              Настройки кланов
+            </a>
+            <a class="bn-sidebar__link" href="/admin/settings/telegram" {% if active_nav|default("") == "admin_telegram" %}aria-current="page"{% endif %} data-admin-only="true">
+              Настройки Telegram
+            </a>
+            <a class="bn-sidebar__link" href="/admin/settings/api-errors" {% if active_nav|default("") == "admin_api_errors" %}aria-current="page"{% endif %} data-admin-only="true">
+              Dev API errors
+            </a>
+          {% endif %}
         </nav>
       </aside>
 
@@ -41,5 +52,6 @@
         </main>
       </div>
     </div>
+    {% block scripts %}{% endblock %}
   </body>
 </html>
