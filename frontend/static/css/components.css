@@ -173,6 +173,30 @@
   color: var(--bn-text-soft);
 }
 
+.bn-badge--ok {
+  border-color: var(--bn-status-ok-soft);
+  background: var(--bn-status-ok-soft);
+  color: var(--bn-status-ok);
+}
+
+.bn-badge--warning {
+  border-color: var(--bn-status-warning-soft);
+  background: var(--bn-status-warning-soft);
+  color: var(--bn-status-warning);
+}
+
+.bn-badge--danger {
+  border-color: var(--bn-status-danger-soft);
+  background: var(--bn-status-danger-soft);
+  color: var(--bn-status-danger);
+}
+
+.bn-badge--gold {
+  border-color: var(--bn-status-gold-soft);
+  background: var(--bn-status-gold-soft);
+  color: var(--bn-status-gold);
+}
+
 .bn-button {
   display: inline-flex;
   align-items: center;

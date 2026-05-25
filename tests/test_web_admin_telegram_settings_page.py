@@ -5,6 +5,7 @@ from contextlib import contextmanager
 
 import pytest
 from fastapi.testclient import TestClient
+from tests.web_dashboard_helpers import override_dashboard_service
 
 from app.api.main import app
 from app.core.settings import Settings
@@ -161,7 +162,7 @@ def test_admin_sidebar_shows_telegram_settings_link(
     )
     monkeypatch.setattr("app.web.context.get_settings", lambda: settings)
 
-    with TestClient(app) as client:
+    with override_dashboard_service(), TestClient(app) as client:
         client.cookies.set(settings.web_admin_cookie_name, cookie_value)
         response = client.get("/")
 

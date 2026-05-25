@@ -8,6 +8,7 @@ from hashlib import sha256
 from typing import Any
 
 from fastapi.testclient import TestClient
+from tests.web_dashboard_helpers import override_dashboard_service
 
 from app.api.main import app
 from app.core.settings import Settings
@@ -339,7 +340,7 @@ def test_dashboard_uses_admin_context_from_valid_admin_cookie(monkeypatch: Any) 
     )
     monkeypatch.setattr("app.web.context.get_settings", lambda: settings)
 
-    with TestClient(app) as client:
+    with override_dashboard_service(), TestClient(app) as client:
         client.cookies.set(settings.web_admin_cookie_name, cookie_value)
         response = client.get("/")
 
@@ -355,7 +356,7 @@ def test_dashboard_ignores_invalid_admin_cookie(monkeypatch: Any) -> None:
     settings = make_settings()
     monkeypatch.setattr("app.web.context.get_settings", lambda: settings)
 
-    with TestClient(app) as client:
+    with override_dashboard_service(), TestClient(app) as client:
         client.cookies.set(settings.web_admin_cookie_name, "bad.cookie")
         response = client.get("/")
 

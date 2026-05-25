@@ -22,6 +22,7 @@
         <a class="bn-sidebar__brand" href="/">BestiaryNavigator_bot</a>
         <nav class="bn-sidebar__nav" aria-label="Разделы">
           <a class="bn-sidebar__link" href="/" {% if active_nav|default("dashboard") == "dashboard" %}aria-current="page"{% endif %}>Dashboard</a>
+          <a class="bn-sidebar__link" href="/#dashboard-clans" {% if active_nav|default("") == "clans" %}aria-current="page"{% endif %}>Кланы</a>
           {% if web_context.is_admin %}
             <a class="bn-sidebar__link" href="/admin/settings/clans" {% if active_nav|default("") == "admin_clans" %}aria-current="page"{% endif %} data-admin-only="true">
               Настройки кланов
@@ -39,7 +40,7 @@
       <div class="bn-layout__content">
         <header class="bn-topbar">
           <a class="bn-brand" href="/">BestiaryNavigator_bot</a>
-          <span class="bn-topbar__status">UI skeleton</span>
+          <span class="bn-topbar__status">Клановый штаб</span>
           <span class="bn-topbar__status">{{ web_context.role_label }}</span>
           {% if web_context.is_admin %}
             <span class="bn-topbar__status" data-admin-only="true">Админ</span>

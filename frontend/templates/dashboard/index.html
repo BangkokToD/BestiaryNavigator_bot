@@ -3,28 +3,187 @@
 {% block content %}
   <section class="bn-section bn-dashboard" aria-labelledby="dashboard-title">
     <div class="bn-section-header">
-      {{ badges.badge("UI skeleton", variant="info") }}
+      {{ badges.badge("Readonly", variant="info") }}
       <h1 id="dashboard-title" class="bn-page-title">Dashboard</h1>
       <p class="bn-page-lead">
-        Ранний web-skeleton подключён. Данные кланов, войн, рейдов, ЛВК,
-        warn и Telegram-маршрутов будут добавлены в следующих feature-коммитах.
+        Клановый штаб: составы, войны, рейды, ЛВК и проблемы по отслеживаемым
+        кланам. Страница работает в режиме просмотра без авторизации.
       </p>
     </div>
 
-    {% call cards.card(class_name="bn-empty-state") %}
-      {{ badges.badge("Пустое состояние", variant="muted") }}
-      <div>
-        <p class="bn-card-eyebrow">Нет данных</p>
-        <h2 class="bn-card-title">Кланы ещё не загружены</h2>
-        <p class="bn-card-text">
-          Эта страница не зависит от базы данных и проверяет только Jinja2,
-          базовый layout и подключение static CSS.
-        </p>
-      </div>
-      <div class="bn-empty-state__actions">
-        {{ buttons.button_link("/health", "Проверить health", variant="primary") }}
-        {{ buttons.button_link("/static/css/app.css", "Открыть CSS", variant="ghost") }}
-      </div>
-    {% endcall %}
+    <div class="bn-dashboard-metrics" aria-label="Сводка">
+      {% for metric in dashboard.summary.metrics %}
+        {% call cards.card(class_name="bn-dashboard-metric bn-dashboard-metric--" ~ metric.variant) %}
+          <div class="bn-dashboard-metric__body">
+            <div>
+              <p class="bn-card-eyebrow">{{ metric.label }}</p>
+              <p class="bn-dashboard-metric__value">{{ metric.value }}</p>
+              <p class="bn-card-text">{{ metric.helper }}</p>
+            </div>
+            <span class="bn-dashboard-metric__icon" aria-hidden="true">{{ metric.icon }}</span>
+          </div>
+        {% endcall %}
+      {% endfor %}
+    </div>
+
+    <div id="dashboard-clans" class="bn-dashboard-groups">
+      {% if dashboard.has_clans %}
+        {% for group in dashboard.groups %}
+          <section
+            class="bn-dashboard-group bn-dashboard-group--{{ group.clan_type }}"
+            aria-labelledby="dashboard-group-{{ group.clan_type }}"
+          >
+            <div class="bn-dashboard-group__header">
+              <h2 id="dashboard-group-{{ group.clan_type }}" class="bn-dashboard-group__title">
+                {{ group.title }}
+              </h2>
+              {{ badges.badge(group.clans|length ~ " кланов", variant="muted") }}
+            </div>
+
+            {% if group.has_clans %}
+              <div class="bn-dashboard-clan-grid">
+                {% for clan in group.clans %}
+                  {% call cards.card(class_name="bn-dashboard-clan-card bn-dashboard-clan-card--" ~ clan.type) %}
+                    <div class="bn-dashboard-clan-card__header">
+                      <div class="bn-dashboard-clan-card__identity">
+                        {% if clan.badge_url %}
+                          <img
+                            class="bn-dashboard-clan-card__badge"
+                            src="{{ clan.badge_url }}"
+                            alt="Эмблема {{ clan.name }}"
+                            loading="lazy"
+                          >
+                        {% else %}
+                          <span class="bn-dashboard-clan-card__placeholder" aria-hidden="true">
+                            {{ clan.type_icon }}
+                          </span>
+                        {% endif %}
+
+                        <div>
+                          <p class="bn-card-eyebrow">{{ clan.tag }}</p>
+                          <h3 class="bn-dashboard-clan-card__title">
+                            <a href="{{ clan.detail_url }}">{{ clan.name }}</a>
+                          </h3>
+                          <p class="bn-card-text">
+                            {{ clan.type_label }} · {{ clan.level_text }}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div class="bn-dashboard-clan-card__badges">
+                        {{ badges.badge(clan.type_label, variant=clan.type_variant) }}
+                        {{ badges.badge(clan.sync_status_label, variant=clan.sync_status_variant) }}
+                      </div>
+                    </div>
+
+                    <p class="bn-dashboard-clan-card__sync">
+                      Последняя синхронизация: {{ clan.last_sync_text }}
+                    </p>
+
+                    <dl class="bn-dashboard-clan-card__stats">
+                      <div>
+                        <dt>Аккаунтов</dt>
+                        <dd>{{ clan.account_count }}</dd>
+                      </div>
+                      <div>
+                        <dt>Telegram</dt>
+                        <dd>{{ clan.linked_accounts_count }}</dd>
+                      </div>
+                      <div>
+                        <dt>Людей</dt>
+                        <dd>{{ clan.real_people_count }}</dd>
+                      </div>
+                      <div>
+                        <dt>Непривязано</dt>
+                        <dd>{{ clan.unlinked_accounts_count }}</dd>
+                      </div>
+                    </dl>
+
+                    {% if clan.is_freezer %}
+                      <div class="bn-dashboard-freezer-note">
+                        {{ badges.badge("Морозилка", variant="muted") }}
+                        <p class="bn-card-text">Боевые блоки скрыты для морозилки.</p>
+                      </div>
+                    {% else %}
+                      <div class="bn-dashboard-battle-grid" aria-label="Боевые сводки">
+                        <article class="bn-dashboard-battle-line">
+                          <div class="bn-dashboard-battle-line__header">
+                            <span>КВ</span>
+                            {% if clan.war %}
+                              {{ badges.badge(clan.war.state_label, variant=clan.war.variant) }}
+                            {% else %}
+                              {{ badges.badge("нет войны", variant="muted") }}
+                            {% endif %}
+                          </div>
+                          {% if clan.war %}
+                            <p class="bn-dashboard-battle-line__main">{{ clan.war.attacks_text }} атак</p>
+                            <p class="bn-card-text">{{ clan.war.score_text }}</p>
+                          {% else %}
+                            <p class="bn-card-text">Актуальная война не найдена.</p>
+                          {% endif %}
+                        </article>
+
+                        <article class="bn-dashboard-battle-line">
+                          <div class="bn-dashboard-battle-line__header">
+                            <span>Рейды</span>
+                            {% if clan.raid %}
+                              {{ badges.badge(clan.raid.state_label, variant=clan.raid.variant) }}
+                            {% else %}
+                              {{ badges.badge("нет данных", variant="muted") }}
+                            {% endif %}
+                          </div>
+                          {% if clan.raid %}
+                            <p class="bn-dashboard-battle-line__main">{{ clan.raid.attacks_text }}</p>
+                            <p class="bn-card-text">Добыча: {{ clan.raid.loot_text }}</p>
+                          {% else %}
+                            <p class="bn-card-text">Рейдовый сезон не найден.</p>
+                          {% endif %}
+                        </article>
+
+                        <article class="bn-dashboard-battle-line">
+                          <div class="bn-dashboard-battle-line__header">
+                            <span>ЛВК</span>
+                            {% if clan.cwl %}
+                              {{ badges.badge(clan.cwl.state_label, variant=clan.cwl.variant) }}
+                            {% else %}
+                              {{ badges.badge("нет сезона", variant="muted") }}
+                            {% endif %}
+                          </div>
+                          {% if clan.cwl %}
+                            <p class="bn-dashboard-battle-line__main">{{ clan.cwl.round_text }}</p>
+                            <p class="bn-card-text">
+                              {{ clan.cwl.season_text }} · {{ clan.cwl.stars_text }}
+                            </p>
+                          {% else %}
+                            <p class="bn-card-text">Сезон ЛВК не найден.</p>
+                          {% endif %}
+                        </article>
+                      </div>
+                    {% endif %}
+                  {% endcall %}
+                {% endfor %}
+              </div>
+            {% else %}
+              {% call empty_states.empty_state(
+                title="В этой группе нет кланов",
+                text="Кланы появятся здесь после добавления и синхронизации.",
+                eyebrow=group.title
+              ) %}
+              {% endcall %}
+            {% endif %}
+          </section>
+        {% endfor %}
+      {% else %}
+        {% call empty_states.empty_state(
+          title="Кланы ещё не добавлены",
+          text="Dashboard начнёт показывать составы, войны, рейды и ЛВК после добавления активных кланов. Настройки кланов доступны только админу.",
+          eyebrow="Пусто"
+        ) %}
+          {% if web_context.is_admin %}
+            {{ buttons.button_link("/admin/settings/clans", "Открыть настройки кланов", variant="primary") }}
+          {% endif %}
+        {% endcall %}
+      {% endif %}
+    </div>
   </section>
 {% endblock %}

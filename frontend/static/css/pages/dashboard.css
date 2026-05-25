@@ -1,4 +1,237 @@
 .bn-dashboard {
   display: grid;
+  gap: 1.25rem;
+}
+
+.bn-dashboard-metrics {
+  display: grid;
   gap: 1rem;
+}
+
+.bn-dashboard-metric {
+  min-width: 0;
+}
+
+.bn-dashboard-metric--ok {
+  border-color: var(--bn-status-ok-soft);
+}
+
+.bn-dashboard-metric--danger {
+  border-color: var(--bn-status-danger-soft);
+}
+
+.bn-dashboard-metric__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bn-dashboard-metric__value {
+  margin: 0;
+  color: var(--bn-text-main);
+  font-size: 2rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.bn-dashboard-metric__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--bn-border-soft);
+  border-radius: var(--bn-radius-md);
+  background: var(--bn-bg-surface-2);
+  font-size: 1.5rem;
+}
+
+.bn-dashboard-groups,
+.bn-dashboard-group {
+  display: grid;
+  gap: 1rem;
+}
+
+.bn-dashboard-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bn-dashboard-group__title {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.bn-dashboard-clan-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.bn-dashboard-clan-card {
+  min-width: 0;
+}
+
+.bn-dashboard-clan-card--main {
+  border-color: var(--bn-status-gold-soft);
+}
+
+.bn-dashboard-clan-card--academy {
+  border-color: var(--bn-status-info-soft);
+}
+
+.bn-dashboard-clan-card--freezer {
+  border-color: var(--bn-status-muted-soft);
+}
+
+.bn-dashboard-clan-card__header {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.bn-dashboard-clan-card__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  min-width: 0;
+}
+
+.bn-dashboard-clan-card__badge,
+.bn-dashboard-clan-card__placeholder {
+  width: 3.25rem;
+  height: 3.25rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--bn-border-soft);
+  border-radius: var(--bn-radius-md);
+  background: var(--bn-bg-surface-2);
+}
+
+.bn-dashboard-clan-card__badge {
+  object-fit: contain;
+}
+
+.bn-dashboard-clan-card__placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+}
+
+.bn-dashboard-clan-card__title {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 1.125rem;
+}
+
+.bn-dashboard-clan-card__title a {
+  text-decoration: none;
+}
+
+.bn-dashboard-clan-card__title a:hover {
+  color: var(--bn-status-info);
+}
+
+.bn-dashboard-clan-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.bn-dashboard-clan-card__sync {
+  margin: 0;
+  color: var(--bn-text-muted);
+  font-size: 0.8rem;
+}
+
+.bn-dashboard-clan-card__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.bn-dashboard-clan-card__stats div {
+  display: grid;
+  gap: 0.2rem;
+  border-top: 1px solid var(--bn-border-soft);
+  padding-top: 0.75rem;
+}
+
+.bn-dashboard-clan-card__stats dt {
+  color: var(--bn-text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.bn-dashboard-clan-card__stats dd {
+  margin: 0;
+  color: var(--bn-text-main);
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.bn-dashboard-battle-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.bn-dashboard-battle-line,
+.bn-dashboard-freezer-note {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--bn-border-soft);
+  border-radius: var(--bn-radius-md);
+  background: var(--bn-bg-surface-2);
+  padding: 0.875rem;
+}
+
+.bn-dashboard-battle-line__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--bn-text-soft);
+  font-size: 0.85rem;
+  font-weight: 900;
+}
+
+.bn-dashboard-battle-line__main {
+  margin: 0;
+  color: var(--bn-text-main);
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+@media (min-width: 640px) {
+  .bn-dashboard-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bn-dashboard-clan-card__header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .bn-dashboard-clan-card__stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .bn-dashboard-metrics {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .bn-dashboard-clan-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bn-dashboard-group--academy .bn-dashboard-clan-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
